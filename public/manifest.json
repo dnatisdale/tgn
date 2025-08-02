@@ -1,6 +1,7 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "TGN",
+  "name": "TGN - Thai Good News Gospel Resource Manager",
+  "description": "Bilingual PWA for managing and sharing gospel resources in Thai and English",
   "icons": [
     {
       "src": "favicon.ico",
@@ -20,6 +21,12 @@
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "theme_color": "#3B82F6",
+  "background_color": "#F8FAFC",
+  "orientation": "any",
+  "categories": ["education", "religion", "utilities"],
+  "lang": "en",
+  "dir": "ltr",
+  "scope": "/",
+  "prefer_related_applications": false
 }
