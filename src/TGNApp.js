@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Plus, Edit3, Trash2, QrCode, Mail, Share2, Download, Upload, Menu, X, Globe, BookOpen, Music, Video, Heart, Users, MapPin, Languages, Star, ExternalLink, Copy, Check } from 'lucide-react';
+import { Search, Plus, Edit3, Trash2, QrCode, Download, Upload, Menu, X, Globe, BookOpen, Music, Video, Heart, Users, MapPin, Languages, Star, ExternalLink, Copy, Check } from 'lucide-react';
 
 const TGNApp = () => {
   const [language, setLanguage] = useState('en');
@@ -11,7 +11,6 @@ const TGNApp = () => {
   const [showQRCode, setShowQRCode] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sortBy, setSortBy] = useState('name');
-  const [showShareModal, setShowShareModal] = useState(null);
   const [copiedUrl, setCopiedUrl] = useState(null);
 
   const translations = {
