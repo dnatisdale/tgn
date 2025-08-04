@@ -165,8 +165,15 @@ const TGNApp = () => {
 
   const handleAddUrl = () => {
     if (newUrl.name && newUrl.url && newUrl.category) {
+      // Ensure URL has proper protocol
+      let formattedUrl = newUrl.url.trim();
+      if (!formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://')) {
+        formattedUrl = 'https://' + formattedUrl;
+      }
+      
       const urlToAdd = {
         ...newUrl,
+        url: formattedUrl,
         id: Date.now(),
         dateAdded: new Date().toISOString()
       };
@@ -191,7 +198,14 @@ const TGNApp = () => {
 
   const handleUpdateUrl = () => {
     if (newUrl.name && newUrl.url && newUrl.category) {
-      setUrls(urls.map(url => url.id === editingUrl.id ? newUrl : url));
+      // Ensure URL has proper protocol
+      let formattedUrl = newUrl.url.trim();
+      if (!formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://')) {
+        formattedUrl = 'https://' + formattedUrl;
+      }
+      
+      const updatedUrl = { ...newUrl, url: formattedUrl };
+      setUrls(urls.map(url => url.id === editingUrl.id ? updatedUrl : url));
       setNewUrl({
         name: '',
         url: '',
