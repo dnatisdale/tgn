@@ -943,7 +943,7 @@ const TGNApp = () => {
 };
 
 export default TGNApp; items-center space-x-3">
-                          <div className={`p-2 rounded-lg bg-gray-50`}>
+                          <div className="p-2 rounded-lg bg-gray-50">
                             <Icon className={`w-5 h-5 ${categoryInfo?.color || 'text-gray-600'}`} />
                           </div>
                           <div>
