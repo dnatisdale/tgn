@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Plus, Edit3, Trash2, QrCode, Download, Upload, Menu, X, Globe, BookOpen, Music, Video, Heart, Users, MapPin, Languages, Star, ExternalLink, Copy, Check } from 'lucide-react';
+import { Search, Plus, Edit3, Trash2, QrCode, Download, Upload, Menu, X, Globe, BookOpen, Music, Video, Heart, Users, MapPin, Languages, Star, ExternalLink, Copy, Check, Share2, Mail } from 'lucide-react';
 
 const TGNApp = () => {
   const [language, setLanguage] = useState('en');
@@ -11,6 +11,7 @@ const TGNApp = () => {
   const [showQRCode, setShowQRCode] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sortBy, setSortBy] = useState('name');
+  const [showShareModal, setShowShareModal] = useState(null);
   const [copiedUrl, setCopiedUrl] = useState(null);
 
   const translations = {
@@ -226,6 +227,73 @@ const TGNApp = () => {
   const generateQRCode = (url) => {
     const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`;
     return qrCodeUrl;
+  };
+
+  const createShareText = (resource) => {
+    const qrCodeUrl = generateQRCode(resource.url);
+    const categoryName = t[resource.category] || resource.category;
+    
+    let shareText = `📖 ${resource.name}\n`;
+    shareText += `🔗 ${resource.url}\n`;
+    shareText += `📂 ${t.category}: ${categoryName}\n`;
+    shareText += `🌐 ${t.language}: ${t[resource.language] || resource.language}\n`;
+    
+    if (resource.description) {
+      shareText += `📝 ${t.description}: ${resource.description}\n`;
+    }
+    
+    shareText += `📅 ${t.date}: ${new Date(resource.dateAdded).toLocaleDateString()}\n`;
+    shareText += `\n📱 QR Code: ${qrCodeUrl}\n`;
+    shareText += `\n✨ Shared via TGN - Thai Good News`;
+    
+    return shareText;
+  };
+
+  const handleShare = async (resource) => {
+    const shareText = createShareText(resource);
+    
+    if (navigator.share) {
+      // Use native sharing if available
+      try {
+        await navigator.share({
+          title: resource.name,
+          text: shareText,
+          url: resource.url
+        });
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          console.error('Error sharing:', err);
+          // Fallback to clipboard
+          copyToClipboard(shareText, `share-${resource.id}`);
+        }
+      }
+    } else {
+      // Fallback to showing share modal
+      setShowShareModal({ ...resource, shareText });
+    }
+  };
+
+  const copyShareText = async (shareText, resourceId) => {
+    try {
+      await navigator.clipboard.writeText(shareText);
+      setCopiedUrl(`share-${resourceId}`);
+      setTimeout(() => setCopiedUrl(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy: ', err);
+    }
+  };
+
+  const shareViaEmail = (resource) => {
+    const shareText = createShareText(resource);
+    const subject = encodeURIComponent(`Gospel Resource: ${resource.name}`);
+    const body = encodeURIComponent(shareText);
+    window.open(`mailto:?subject=${subject}&body=${body}`);
+  };
+
+  const shareViaWhatsApp = (resource) => {
+    const shareText = createShareText(resource);
+    const encodedText = encodeURIComponent(shareText);
+    window.open(`https://wa.me/?text=${encodedText}`);
   };
 
   const copyToClipboard = async (text, urlId) => {
@@ -489,30 +557,32 @@ const TGNApp = () => {
 
                       <div className="flex items-center justify-between space-x-2">
                         <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => copyToClipboard(url.url, url.id)}
-                            className="flex items-center space-x-1 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-sm"
-                          >
-                            {copiedUrl === url.id ? (
-                              <>
-                                <Check className="w-4 h-4 text-green-600" />
-                                <span className="text-green-600">{t.copied}</span>
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="w-4 h-4" />
-                                <span>{t.share}</span>
-                              </>
-                            )}
-                          </button>
-                          
-                          <button
-                            onClick={() => setShowQRCode(url)}
-                            className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                          >
-                            <QrCode className="w-4 h-4" />
-                          </button>
-                        </div>
+                        <button
+                          onClick={() => handleShare(url)}
+                          className="flex items-center space-x-1 px-3 py-2 bg-blue-100 hover:bg-blue-200 rounded-lg transition-colors text-sm text-blue-700"
+                        >
+                          <Share2 className="w-4 h-4" />
+                          <span>{t.share}</span>
+                        </button>
+                        
+                        <button
+                          onClick={() => copyToClipboard(url.url, url.id)}
+                          className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                        >
+                          {copiedUrl === url.id ? (
+                            <Check className="w-4 h-4 text-green-600" />
+                          ) : (
+                            <Copy className="w-4 h-4" />
+                          )}
+                        </button>
+                        
+                        <button
+                          onClick={() => setShowQRCode(url)}
+                          className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                        >
+                          <QrCode className="w-4 h-4" />
+                        </button>
+                      </div>
                         
                         <span className="text-xs text-gray-400">
                           {new Date(url.dateAdded).toLocaleDateString()}
@@ -626,6 +696,89 @@ const TGNApp = () => {
                 >
                   {t.save}
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Share Modal */}
+      {showShareModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-screen overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-semibold text-gray-900">{t.share} {showShareModal.name}</h3>
+                <button
+                  onClick={() => setShowShareModal(null)}
+                  className="p-1 rounded-lg hover:bg-gray-100"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                {/* QR Code */}
+                <div className="text-center p-4 bg-gray-50 rounded-lg">
+                  <img
+                    src={generateQRCode(showShareModal.url)}
+                    alt="QR Code"
+                    className="mx-auto border rounded-lg shadow-sm mb-2"
+                  />
+                  <p className="text-sm text-gray-600">Scan to visit</p>
+                </div>
+
+                {/* Share Text Preview */}
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <h4 className="font-medium text-gray-900 mb-2">Share Text:</h4>
+                  <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans">
+                    {showShareModal.shareText}
+                  </pre>
+                </div>
+
+                {/* Share Options */}
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => copyShareText(showShareModal.shareText, showShareModal.id)}
+                    className="flex items-center justify-center space-x-2 px-4 py-3 bg-green-100 hover:bg-green-200 rounded-lg transition-colors text-green-700"
+                  >
+                    {copiedUrl === `share-${showShareModal.id}` ? (
+                      <>
+                        <Check className="w-4 h-4" />
+                        <span className="text-sm">{t.copied}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4" />
+                        <span className="text-sm">Copy All</span>
+                      </>
+                    )}
+                  </button>
+                  
+                  <button
+                    onClick={() => shareViaEmail(showShareModal)}
+                    className="flex items-center justify-center space-x-2 px-4 py-3 bg-blue-100 hover:bg-blue-200 rounded-lg transition-colors text-blue-700"
+                  >
+                    <Mail className="w-4 h-4" />
+                    <span className="text-sm">{t.email}</span>
+                  </button>
+                  
+                  <button
+                    onClick={() => shareViaWhatsApp(showShareModal)}
+                    className="flex items-center justify-center space-x-2 px-4 py-3 bg-green-100 hover:bg-green-200 rounded-lg transition-colors text-green-700"
+                  >
+                    <Share2 className="w-4 h-4" />
+                    <span className="text-sm">WhatsApp</span>
+                  </button>
+                  
+                  <button
+                    onClick={() => shareViaFacebook(showShareModal)}
+                    className="flex items-center justify-center space-x-2 px-4 py-3 bg-blue-100 hover:bg-blue-200 rounded-lg transition-colors text-blue-700"
+                  >
+                    <Share2 className="w-4 h-4" />
+                    <span className="text-sm">Facebook</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
