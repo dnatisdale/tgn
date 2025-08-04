@@ -239,6 +239,32 @@ const TGNApp = () => {
     setUrlValidation({ isValid, message, suggestion });
   };
 
+  const checkUrlAccessibility = async (url) => {
+    // This is a basic check - in a real app you might want to use a service
+    // For now, we'll just do pattern validation
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve(true); // Assume URL is accessible for demo
+      }, 500);
+    });
+  };
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+
+    // Show the install prompt
+    deferredPrompt.prompt();
+
+    // Wait for the user to respond to the prompt
+    const { outcome } = await deferredPrompt.userChoice;
+
+    if (outcome === 'accepted') {
+      setShowInstallButton(false);
+    }
+
+    setDeferredPrompt(null);
+  };
+
   // Save language preference
   useEffect(() => {
     localStorage.setItem('tgnLanguage', language);
