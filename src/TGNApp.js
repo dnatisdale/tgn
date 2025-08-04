@@ -1,986 +1,806 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Plus, Edit3, Trash2, QrCode, Download, Upload, Menu, X, Globe, BookOpen, Music, Video, Heart, Users, MapPin, Languages, Star, ExternalLink, Copy, Check, Share2, Mail, Smartphone } from 'lucide-react';
+import { 
+  Plus, Search, QrCode, Share2, Download, Upload, 
+  Edit3, Trash2, Check, X, ChevronDown, ChevronRight,
+  Globe, Languages, Music, BookOpen, Video, Mic,
+  ArrowUp, ArrowDown, Settings, ExternalLink,
+  RefreshCw, Database, Copy, AlertTriangle
+} from 'lucide-react';
 
 const TGNApp = () => {
+  // Core state
   const [language, setLanguage] = useState('en');
   const [urls, setUrls] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [isAddingUrl, setIsAddingUrl] = useState(false);
-  const [editingUrl, setEditingUrl] = useState(null);
-  const [showQRCode, setShowQRCode] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sortBy, setSortBy] = useState('name');
-  const [showShareModal, setShowShareModal] = useState(null);
-  const [copiedUrl, setCopiedUrl] = useState(null);
-  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [selectedSubcategory, setSelectedSubcategory] = useState('all');
+  
+  // UI state
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [editingCategory, setEditingCategory] = useState(null);
+  const [expandedCategories, setExpandedCategories] = useState(new Set());
+  const [installPrompt, setInstallPrompt] = useState(null);
   const [showInstallButton, setShowInstallButton] = useState(false);
-  const [urlValidation, setUrlValidation] = useState({ isValid: true, message: '', suggestion: '' });
+  
+  // Form state
+  const [newUrl, setNewUrl] = useState({ title: '', url: '', category: '', subcategory: '', notes: '' });
+  const [newCategory, setNewCategory] = useState({ name: '', subcategories: [''] });
+  const [bulkImportText, setBulkImportText] = useState('');
+  const [urlCheckResults, setUrlCheckResults] = useState([]);
 
-  const translations = {
+  // Translations
+  const t = {
     en: {
-      title: "Thai Good News",
-      subtitle: "Gospel Resource Manager",
-      search: "Search resources...",
-      addNew: "Add Resource",
-      categories: "Categories",
-      all: "All Resources",
-      bible: "Bible Stories",
-      songs: "Songs & Hymns",
-      testimonies: "Testimonies",
-      videos: "Videos",
-      audio: "Audio",
-      websites: "Websites",
-      thai: "Thai Content",
-      english: "English Content",
-      multilingual: "Multilingual",
-      dialects: "Thai Dialects",
-      sortBy: "Sort by",
-      name: "Name",
-      date: "Date Added",
-      category: "Category",
-      share: "Share",
-      edit: "Edit",
-      delete: "Delete",
-      qrCode: "QR Code",
-      email: "Email",
-      export: "Export",
-      import: "Import",
-      cancel: "Cancel",
-      save: "Save",
-      urlLabel: "Resource Name",
-      urlAddress: "URL Address",
-      selectCategory: "Select Category",
-      description: "Description",
-      language: "Language",
-      copied: "Copied!",
-      noResults: "No resources found",
-      addFirst: "Add your first gospel resource to get started",
-      urlValid: "URL looks good!",
-      urlInvalid: "Please check this URL",
-      urlSuggestion: "Did you mean:",
-      checking: "Checking URL...",
-      installApp: "Install App",
-      close: "Close"
+      title: 'Thai Good News',
+      addResource: 'Add Resource',
+      search: 'Search resources...',
+      allCategories: 'All Categories',
+      manageCategories: 'Manage Categories',
+      importUrls: 'Import URLs',
+      exportData: 'Export Data',
+      installApp: 'Install App',
+      checkUrls: 'Check URLs',
+      title_label: 'Title',
+      url_label: 'URL',
+      category_label: 'Category',
+      subcategory_label: 'Subcategory',
+      notes_label: 'Notes',
+      save: 'Save',
+      cancel: 'Cancel',
+      edit: 'Edit',
+      delete: 'Delete',
+      share: 'Share',
+      qrCode: 'QR Code',
+      addCategory: 'Add Category',
+      categoryName: 'Category Name',
+      subcategories: 'Subcategories',
+      addSubcategory: 'Add Subcategory',
+      bulkImport: 'Bulk Import URLs',
+      pasteUrls: 'Paste URLs (one per line)',
+      urlStatus: 'URL Status',
+      working: 'Working',
+      broken: 'Broken',
+      unknown: 'Unknown'
     },
     th: {
-      title: "ข่าวดีไทย",
-      subtitle: "ตัวจัดการทรัพยากรพระกิตติคุณ",
-      search: "ค้นหาทรัพยากร...",
-      addNew: "เพิ่มทรัพยากร",
-      categories: "หมวดหมู่",
-      all: "ทรัพยากรทั้งหมด",
-      bible: "เรื่องราวพระคัมภีร์",
-      songs: "เพลงและสดุดี",
-      testimonies: "คำพยาน",
-      videos: "วิดีโอ",
-      audio: "เสียง",
-      websites: "เว็บไซต์",
-      thai: "เนื้อหาภาษาไทย",
-      english: "เนื้อหาภาษาอังกฤษ",
-      multilingual: "หลายภาษา",
-      dialects: "ภาษาถิ่นไทย",
-      sortBy: "เรียงตาม",
-      name: "ชื่อ",
-      date: "วันที่เพิ่ม",
-      category: "หมวดหมู่",
-      share: "แชร์",
-      edit: "แก้ไข",
-      delete: "ลบ",
-      qrCode: "QR Code",
-      email: "อีเมล",
-      export: "ส่งออก",
-      import: "นำเข้า",
-      cancel: "ยกเลิก",
-      save: "บันทึก",
-      urlLabel: "ชื่อทรัพยากร",
-      urlAddress: "ที่อยู่ URL",
-      selectCategory: "เลือกหมวดหมู่",
-      description: "คำอธิบาย",
-      language: "ภาษา",
-      copied: "คัดลอกแล้ว!",
-      noResults: "ไม่พบทรัพยากร",
-      addFirst: "เพิ่มทรัพยากรพระกิตติคุณแรกของคุณเพื่อเริ่มต้น",
-      urlValid: "URL ดูดี!",
-      urlInvalid: "กรุณาตรวจสอบ URL นี้",
-      urlSuggestion: "คุณหมายถึง:",
-      checking: "กำลังตรวจสอบ URL...",
-      installApp: "ติดตั้งแอป",
-      close: "ปิด"
+      title: 'ข่าวดีไทย',
+      addResource: 'เพิ่มทรัพยากร',
+      search: 'ค้นหาทรัพยากร...',
+      allCategories: 'หมวดหมู่ทั้งหมด',
+      manageCategories: 'จัดการหมวดหมู่',
+      importUrls: 'นำเข้า URL',
+      exportData: 'ส่งออกข้อมูล',
+      installApp: 'ติดตั้งแอป',
+      checkUrls: 'ตรวจสอบ URL',
+      title_label: 'ชื่อ',
+      url_label: 'URL',
+      category_label: 'หมวดหมู่',
+      subcategory_label: 'หมวดหมู่ย่อย',
+      notes_label: 'หมายเหตุ',
+      save: 'บันทึก',
+      cancel: 'ยกเลิก',
+      edit: 'แก้ไข',
+      delete: 'ลบ',
+      share: 'แชร์',
+      qrCode: 'QR Code',
+      addCategory: 'เพิ่มหมวดหมู่',
+      categoryName: 'ชื่อหมวดหมู่',
+      subcategories: 'หมวดหมู่ย่อย',
+      addSubcategory: 'เพิ่มหมวดหมู่ย่อย',
+      bulkImport: 'นำเข้า URL จำนวนมาก',
+      pasteUrls: 'วาง URL (หนึ่งบรรทัดต่อหนึ่ง URL)',
+      urlStatus: 'สถานะ URL',
+      working: 'ใช้งานได้',
+      broken: 'เสียหาย',
+      unknown: 'ไม่ทราบ'
     }
   };
 
-  const t = translations[language];
-
-  const categories = [
-    { id: 'bible', icon: BookOpen, color: 'text-blue-600' },
-    { id: 'songs', icon: Music, color: 'text-purple-600' },
-    { id: 'testimonies', icon: Heart, color: 'text-red-600' },
-    { id: 'videos', icon: Video, color: 'text-green-600' },
-    { id: 'audio', icon: Users, color: 'text-orange-600' },
-    { id: 'websites', icon: Globe, color: 'text-cyan-600' },
-    { id: 'thai', icon: MapPin, color: 'text-emerald-600' },
-    { id: 'english', icon: Languages, color: 'text-indigo-600' },
-    { id: 'multilingual', icon: Star, color: 'text-yellow-600' },
-    { id: 'dialects', icon: Languages, color: 'text-pink-600' }
+  // Default categories with two-tier structure
+  const defaultCategories = [
+    {
+      id: 'thailand',
+      name: 'Thailand',
+      subcategories: [
+        { id: 'thai-central', name: 'Thai (Central)' },
+        { id: 'thai-northern', name: 'Thai (Northern)' },
+        { id: 'thai-southern', name: 'Thai (Southern)' },
+        { id: 'karen', name: 'Karen' },
+        { id: 'hmong', name: 'Hmong' }
+      ]
+    },
+    {
+      id: 'myanmar',
+      name: 'Myanmar',
+      subcategories: [
+        { id: 'burmese', name: 'Burmese' },
+        { id: 'shan', name: 'Shan' },
+        { id: 'karen-myanmar', name: 'Karen (Myanmar)' }
+      ]
+    },
+    {
+      id: 'laos',
+      name: 'Laos',
+      subcategories: [
+        { id: 'lao', name: 'Lao' },
+        { id: 'hmong-laos', name: 'Hmong (Laos)' }
+      ]
+    },
+    {
+      id: 'content-types',
+      name: 'Content Types',
+      subcategories: [
+        { id: 'bible', name: 'Bible' },
+        { id: 'songs', name: 'Songs' },
+        { id: 'testimonies', name: 'Testimonies' },
+        { id: 'videos', name: 'Videos' },
+        { id: 'audio', name: 'Audio Messages' }
+      ]
+    }
   ];
 
-  // Load data from localStorage on component mount
+  // Initialize data
   useEffect(() => {
     const savedUrls = localStorage.getItem('tgnUrls');
+    const savedCategories = localStorage.getItem('tgnCategories');
     const savedLanguage = localStorage.getItem('tgnLanguage');
-    
-    if (savedUrls) {
-      setUrls(JSON.parse(savedUrls));
+
+    if (savedUrls) setUrls(JSON.parse(savedUrls));
+    if (savedCategories) {
+      setCategories(JSON.parse(savedCategories));
+    } else {
+      setCategories(defaultCategories);
+      localStorage.setItem('tgnCategories', JSON.stringify(defaultCategories));
     }
-    if (savedLanguage) {
-      setLanguage(savedLanguage);
-    }
+    if (savedLanguage) setLanguage(savedLanguage);
+
+    // PWA install prompt
+    const handleBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+      setShowInstallButton(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
 
-  // Save data to localStorage whenever urls change
+  // Save data
   useEffect(() => {
     localStorage.setItem('tgnUrls', JSON.stringify(urls));
   }, [urls]);
 
-  // Save language preference
+  useEffect(() => {
+    localStorage.setItem('tgnCategories', JSON.stringify(categories));
+  }, [categories]);
+
   useEffect(() => {
     localStorage.setItem('tgnLanguage', language);
   }, [language]);
 
-  // PWA Install functionality
-  useEffect(() => {
-    const handleBeforeInstallPrompt = (e) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-      setShowInstallButton(true);
-    };
-
-    const handleAppInstalled = () => {
-      setShowInstallButton(false);
-      setDeferredPrompt(null);
-    };
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    window.addEventListener('appinstalled', handleAppInstalled);
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-      window.removeEventListener('appinstalled', handleAppInstalled);
-    };
-  }, []);
-
-  const [newUrl, setNewUrl] = useState({
-    name: '',
-    url: '',
-    category: '',
-    description: '',
-    language: 'multilingual',
-    dateAdded: new Date().toISOString()
-  });
-
   // URL validation and correction
-  const validateAndCorrectUrl = (inputUrl) => {
-    if (!inputUrl.trim()) {
-      setUrlValidation({ isValid: true, message: '', suggestion: '' });
-      return;
-    }
-
-    let url = inputUrl.trim().toLowerCase();
-    let suggestion = '';
-    let isValid = true;
-    let message = '';
-
+  const validateAndCorrectUrl = (url) => {
+    if (!url) return { corrected: '', isValid: false };
+    
+    let corrected = url.trim();
+    
+    // Common typo corrections
     const corrections = {
-      'gooogle.com': 'google.com',
-      'googel.com': 'google.com',
       'youtub.com': 'youtube.com',
-      'youutube.com': 'youtube.com',
-      'youtuve.com': 'youtube.com',
-      'facebok.com': 'facebook.com',
-      'facbook.com': 'facebook.com',
+      'youtube.co': 'youtube.com',
+      'youtu.be': 'youtu.be', // Keep this as is
       'globalrecording.net': 'globalrecordings.net',
-      'globalrecordings.com': 'globalrecordings.net',
-      '5fis.mobi': '5fish.mobi',
-      '5fish.com': '5fish.mobi',
-      'htp://': 'http://',
-      'htps://': 'https://',
-      'http//': 'http://',
-      'https//': 'https://',
-      'www.': 'https://www.',
-      'http:www.': 'http://www.',
-      'https:www.': 'https://www.'
+      '5fish.mob': '5fish.mobi'
     };
-
-    let correctedUrl = url;
-    for (const [typo, correction] of Object.entries(corrections)) {
-      if (correctedUrl.includes(typo)) {
-        correctedUrl = correctedUrl.replace(typo, correction);
-        suggestion = correctedUrl;
-        break;
-      }
-    }
-
-    if (!correctedUrl.startsWith('http://') && !correctedUrl.startsWith('https://')) {
-      if (!suggestion) suggestion = 'https://' + correctedUrl;
-    }
-
-    const urlPattern = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?(\?[;&a-z\d%_\.,~#=]*)?(\#[-a-z\d_]*)?$/i;
-    const urlToTest = suggestion || (correctedUrl.startsWith('http') ? correctedUrl : 'https://' + correctedUrl);
     
-    if (!urlPattern.test(urlToTest)) {
-      isValid = false;
-      message = t.urlInvalid;
-    } else {
-      message = t.urlValid;
-    }
-
-    if (correctedUrl.includes('..')) {
-      isValid = false;
-      message = t.urlInvalid;
-    }
-
-    setUrlValidation({ isValid, message, suggestion });
-  };
-
-  const handleInstallClick = async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') {
-      setShowInstallButton(false);
-    }
-    setDeferredPrompt(null);
-  };
-
-  const generateQRCode = (url) => {
-    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`;
-    return qrCodeUrl;
-  };
-
-  const createShareText = (resource) => {
-    const qrCodeUrl = generateQRCode(resource.url);
-    const categoryName = t[resource.category] || resource.category;
-    
-    let shareText = `📖 ${resource.name}\n`;
-    shareText += `🔗 ${resource.url}\n`;
-    shareText += `📂 ${t.category}: ${categoryName}\n`;
-    shareText += `🌐 ${t.language}: ${t[resource.language] || resource.language}\n`;
-    
-    if (resource.description) {
-      shareText += `📝 ${t.description}: ${resource.description}\n`;
-    }
-    
-    shareText += `📅 ${t.date}: ${new Date(resource.dateAdded).toLocaleDateString()}\n`;
-    shareText += `\n📱 QR Code: ${qrCodeUrl}\n`;
-    shareText += `\n✨ Shared via TGN - Thai Good News`;
-    
-    return shareText;
-  };
-
-  const handleShare = async (resource) => {
-    const shareText = createShareText(resource);
-    
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: resource.name,
-          text: shareText,
-          url: resource.url
-        });
-      } catch (err) {
-        if (err.name !== 'AbortError') {
-          console.error('Error sharing:', err);
-          copyToClipboard(shareText, `share-${resource.id}`);
-        }
-      }
-    } else {
-      setShowShareModal({ ...resource, shareText });
-    }
-  };
-
-  const copyShareText = async (shareText, resourceId) => {
-    try {
-      await navigator.clipboard.writeText(shareText);
-      setCopiedUrl(`share-${resourceId}`);
-      setTimeout(() => setCopiedUrl(null), 2000);
-    } catch (err) {
-      console.error('Failed to copy: ', err);
-    }
-  };
-
-  const shareViaEmail = (resource) => {
-    const shareText = createShareText(resource);
-    const subject = encodeURIComponent(`Gospel Resource: ${resource.name}`);
-    const body = encodeURIComponent(shareText);
-    window.open(`mailto:?subject=${subject}&body=${body}`);
-  };
-
-  const shareViaWhatsApp = (resource) => {
-    const shareText = createShareText(resource);
-    const encodedText = encodeURIComponent(shareText);
-    window.open(`https://wa.me/?text=${encodedText}`);
-  };
-
-  const shareViaFacebook = (resource) => {
-    const encodedUrl = encodeURIComponent(resource.url);
-    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`);
-  };
-
-  const copyToClipboard = async (text, urlId) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedUrl(urlId);
-      setTimeout(() => setCopiedUrl(null), 2000);
-    } catch (err) {
-      console.error('Failed to copy: ', err);
-    }
-  };
-
-  const filteredAndSortedUrls = useMemo(() => {
-    let filtered = urls.filter(url => {
-      const matchesSearch = url.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           url.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           url.url.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesCategory = selectedCategory === 'all' || url.category === selectedCategory;
-      return matchesSearch && matchesCategory;
+    Object.entries(corrections).forEach(([typo, correct]) => {
+      corrected = corrected.replace(typo, correct);
     });
+    
+    // Add https if missing
+    if (!/^https?:\/\//.test(corrected)) {
+      corrected = 'https://' + corrected;
+    }
+    
+    const isValid = /^https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)$/.test(corrected);
+    
+    return { corrected, isValid };
+  };
 
-    return filtered.sort((a, b) => {
-      if (sortBy === 'name') {
-        return a.name.localeCompare(b.name);
-      } else if (sortBy === 'date') {
-        return new Date(b.dateAdded) - new Date(a.dateAdded);
-      } else {
-        return a.category.localeCompare(b.category);
-      }
-    });
-  }, [urls, searchTerm, selectedCategory, sortBy]);
-
-  const handleAddUrl = () => {
-    if (newUrl.name && newUrl.url && newUrl.category && urlValidation.isValid) {
-      let formattedUrl = urlValidation.suggestion || newUrl.url.trim();
-      if (!formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://')) {
-        formattedUrl = 'https://' + formattedUrl;
-      }
-      
-      const urlToAdd = {
-        ...newUrl,
-        url: formattedUrl,
-        id: Date.now(),
-        dateAdded: new Date().toISOString()
-      };
-      setUrls([...urls, urlToAdd]);
-      setNewUrl({
-        name: '',
-        url: '',
-        category: '',
-        description: '',
-        language: 'multilingual',
-        dateAdded: new Date().toISOString()
-      });
-      setUrlValidation({ isValid: true, message: '', suggestion: '' });
-      setIsAddingUrl(false);
+  // Check URL status
+  const checkUrlStatus = async (url) => {
+    try {
+      const response = await fetch(url, { method: 'HEAD', mode: 'no-cors' });
+      return 'working';
+    } catch {
+      return 'unknown'; // Can't determine due to CORS
     }
   };
 
-  const handleEditUrl = (url) => {
-    setEditingUrl(url);
-    setNewUrl(url);
-    setIsAddingUrl(true);
-  };
-
-  const handleUpdateUrl = () => {
-    if (newUrl.name && newUrl.url && newUrl.category && urlValidation.isValid) {
-      let formattedUrl = urlValidation.suggestion || newUrl.url.trim();
-      if (!formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://')) {
-        formattedUrl = 'https://' + formattedUrl;
+  // Handle PWA install
+  const handleInstall = async () => {
+    if (installPrompt) {
+      installPrompt.prompt();
+      const { outcome } = await installPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setShowInstallButton(false);
       }
-      
-      const updatedUrl = { ...newUrl, url: formattedUrl };
-      setUrls(urls.map(url => url.id === editingUrl.id ? updatedUrl : url));
-      setNewUrl({
-        name: '',
-        url: '',
-        category: '',
-        description: '',
-        language: 'multilingual',
-        dateAdded: new Date().toISOString()
-      });
-      setUrlValidation({ isValid: true, message: '', suggestion: '' });
-      setIsAddingUrl(false);
-      setEditingUrl(null);
+      setInstallPrompt(null);
     }
   };
 
-  const handleDeleteUrl = (id) => {
+  // Category management
+  const addCategory = () => {
+    if (!newCategory.name.trim()) return;
+    
+    const category = {
+      id: Date.now().toString(),
+      name: newCategory.name,
+      subcategories: newCategory.subcategories
+        .filter(sub => sub.trim())
+        .map(sub => ({
+          id: Date.now().toString() + Math.random(),
+          name: sub.trim()
+        }))
+    };
+    
+    setCategories([...categories, category]);
+    setNewCategory({ name: '', subcategories: [''] });
+  };
+
+  const updateCategory = (categoryId, updatedCategory) => {
+    setCategories(categories.map(cat => 
+      cat.id === categoryId ? updatedCategory : cat
+    ));
+  };
+
+  const deleteCategory = (categoryId) => {
+    setCategories(categories.filter(cat => cat.id !== categoryId));
+    // Also remove any URLs in this category
+    setUrls(urls.filter(url => url.category !== categoryId));
+  };
+
+  const moveCategoryUp = (index) => {
+    if (index === 0) return;
+    const newCategories = [...categories];
+    [newCategories[index - 1], newCategories[index]] = [newCategories[index], newCategories[index - 1]];
+    setCategories(newCategories);
+  };
+
+  const moveCategoryDown = (index) => {
+    if (index === categories.length - 1) return;
+    const newCategories = [...categories];
+    [newCategories[index], newCategories[index + 1]] = [newCategories[index + 1], newCategories[index]];
+    setCategories(newCategories);
+  };
+
+  // URL management
+  const addUrl = () => {
+    const { corrected, isValid } = validateAndCorrectUrl(newUrl.url);
+    
+    if (!newUrl.title.trim() || !isValid) return;
+    
+    const url = {
+      id: Date.now().toString(),
+      title: newUrl.title,
+      url: corrected,
+      category: newUrl.category,
+      subcategory: newUrl.subcategory,
+      notes: newUrl.notes,
+      dateAdded: new Date().toISOString(),
+      status: 'unknown'
+    };
+    
+    setUrls([...urls, url]);
+    setNewUrl({ title: '', url: '', category: '', subcategory: '', notes: '' });
+    setShowAddForm(false);
+  };
+
+  const deleteUrl = (id) => {
     setUrls(urls.filter(url => url.id !== id));
   };
 
-  const exportData = () => {
-    const dataStr = JSON.stringify(urls, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'tgn-resources.json';
-    link.click();
-    URL.revokeObjectURL(url);
+  // Bulk import
+  const handleBulkImport = () => {
+    const lines = bulkImportText.split('\n').filter(line => line.trim());
+    const newUrls = [];
+    
+    lines.forEach(line => {
+      const { corrected, isValid } = validateAndCorrectUrl(line.trim());
+      if (isValid) {
+        const url = {
+          id: Date.now().toString() + Math.random(),
+          title: corrected.replace(/^https?:\/\//, '').split('/')[0],
+          url: corrected,
+          category: '',
+          subcategory: '',
+          notes: 'Bulk imported',
+          dateAdded: new Date().toISOString(),
+          status: 'unknown'
+        };
+        newUrls.push(url);
+      }
+    });
+    
+    setUrls([...urls, ...newUrls]);
+    setBulkImportText('');
+    setShowImportDialog(false);
   };
 
-  const importData = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const importedUrls = JSON.parse(e.target.result);
-          setUrls([...urls, ...importedUrls]);
-        } catch (error) {
-          alert('Error importing data. Please check the file format.');
-        }
-      };
-      reader.readAsText(file);
+  // Check all URLs
+  const checkAllUrls = async () => {
+    setUrlCheckResults([]);
+    const results = [];
+    
+    for (const url of urls) {
+      const status = await checkUrlStatus(url.url);
+      results.push({ id: url.id, status });
+      setUrlCheckResults([...results]);
+      
+      // Update URL status
+      setUrls(prevUrls => 
+        prevUrls.map(u => 
+          u.id === url.id ? { ...u, status } : u
+        )
+      );
     }
   };
 
+  // Export/Import
+  const exportData = () => {
+    const data = { urls, categories, version: '2.0' };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tgn-backup-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Generate QR code (simple implementation)
+  const generateQRCode = (url) => {
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`;
+    window.open(qrUrl, '_blank');
+  };
+
+  // Share functionality
+  const shareUrl = async (url) => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: url.title,
+          text: url.notes || 'Gospel resource',
+          url: url.url
+        });
+      } catch (error) {
+        copyToClipboard(url.url);
+      }
+    } else {
+      copyToClipboard(url.url);
+    }
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text).then(() => {
+      alert('Copied to clipboard!');
+    });
+  };
+
+  // Filter URLs
+  const filteredUrls = useMemo(() => {
+    return urls.filter(url => {
+      const matchesSearch = url.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          url.url.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          url.notes.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesCategory = selectedCategory === 'all' || url.category === selectedCategory;
+      const matchesSubcategory = selectedSubcategory === 'all' || url.subcategory === selectedSubcategory;
+      
+      return matchesSearch && matchesCategory && matchesSubcategory;
+    });
+  }, [urls, searchTerm, selectedCategory, selectedSubcategory]);
+
+  // Get subcategories for selected category
+  const getSubcategories = () => {
+    if (selectedCategory === 'all') return [];
+    const category = categories.find(cat => cat.id === selectedCategory);
+    return category ? category.subcategories : [];
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-lg border-b-4 border-gradient-to-r from-blue-500 to-purple-600">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+      <header className="bg-blue-600 text-white p-4 shadow-lg">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">{t[language].title}</h1>
+          <div className="flex items-center gap-2">
+            {showInstallButton && (
               <button
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="lg:hidden p-2 rounded-lg hover:bg-gray-100"
+                onClick={handleInstall}
+                className="bg-green-500 hover:bg-green-600 px-3 py-1 rounded text-sm flex items-center gap-1"
               >
-                <Menu className="w-6 h-6" />
+                <Download size={16} />
+                {t[language].installApp}
               </button>
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                  <BookOpen className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">{t.title}</h1>
-                  <p className="text-sm text-gray-600">{t.subtitle}</p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              {showInstallButton && (
-                <button
-                  onClick={handleInstallClick}
-                  className="flex items-center space-x-2 px-3 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg transition-colors text-sm font-medium"
-                >
-                  <Smartphone className="w-4 h-4" />
-                  <span className="hidden sm:inline">{t.installApp}</span>
-                </button>
-              )}
-              
-              <button
-                onClick={() => setLanguage(language === 'en' ? 'th' : 'en')}
-                className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
-              >
-                <Globe className="w-4 h-4" />
-                <span className="font-medium">{language === 'en' ? 'ไทย' : 'ENG'}</span>
-              </button>
-              
-              <button
-                onClick={() => setIsAddingUrl(true)}
-                className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all"
-              >
-                <Plus className="w-4 h-4" />
-                <span className="hidden sm:inline">{t.addNew}</span>
-              </button>
-            </div>
+            )}
+            <button
+              onClick={() => setLanguage(language === 'en' ? 'th' : 'en')}
+              className="bg-blue-500 hover:bg-blue-400 px-3 py-1 rounded text-sm"
+            >
+              {language === 'en' ? 'ไทย' : 'EN'}
+            </button>
           </div>
         </div>
       </header>
 
-      <div className="flex">
-        {/* Sidebar */}
-        <aside className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed lg:relative z-30 w-80 h-screen bg-white shadow-xl transition-transform duration-300 ease-in-out`}>
-          <div className="p-6 border-b">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">{t.categories}</h2>
-              <button
-                onClick={() => setSidebarOpen(false)}
-                className="lg:hidden p-1 rounded-lg hover:bg-gray-100"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
-                type="text"
-                placeholder={t.search}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
+      {/* Controls */}
+      <div className="p-4 bg-white shadow-sm">
+        <div className="flex flex-wrap gap-2 mb-4">
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded flex items-center gap-2"
+          >
+            <Plus size={16} />
+            {t[language].addResource}
+          </button>
+          <button
+            onClick={() => setShowCategoryManager(true)}
+            className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded flex items-center gap-2"
+          >
+            <Settings size={16} />
+            {t[language].manageCategories}
+          </button>
+          <button
+            onClick={() => setShowImportDialog(true)}
+            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2"
+          >
+            <Upload size={16} />
+            {t[language].importUrls}
+          </button>
+          <button
+            onClick={exportData}
+            className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded flex items-center gap-2"
+          >
+            <Download size={16} />
+            {t[language].exportData}
+          </button>
+          <button
+            onClick={checkAllUrls}
+            className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded flex items-center gap-2"
+          >
+            <RefreshCw size={16} />
+            {t[language].checkUrls}
+          </button>
+        </div>
+
+        {/* Search and Filters */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+            <input
+              type="text"
+              placeholder={t[language].search}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
           </div>
+          
+          <select
+            value={selectedCategory}
+            onChange={(e) => {
+              setSelectedCategory(e.target.value);
+              setSelectedSubcategory('all');
+            }}
+            className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="all">{t[language].allCategories}</option>
+            {categories.map(category => (
+              <option key={category.id} value={category.id}>{category.name}</option>
+            ))}
+          </select>
 
-          <div className="p-6">
-            <div className="space-y-2 mb-6">
-              <button
-                onClick={() => setSelectedCategory('all')}
-                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${
-                  selectedCategory === 'all' 
-                    ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg' 
-                    : 'hover:bg-gray-100 text-gray-700'
-                }`}
-              >
-                <Star className="w-5 h-5" />
-                <span className="font-medium">{t.all}</span>
-                <span className="ml-auto bg-gray-200 text-gray-700 px-2 py-1 rounded-full text-xs">
-                  {urls.length}
-                </span>
-              </button>
-              
-              {categories.map((category) => {
-                const Icon = category.icon;
-                const count = urls.filter(url => url.category === category.id).length;
-                return (
-                  <button
-                    key={category.id}
-                    onClick={() => setSelectedCategory(category.id)}
-                    className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${
-                      selectedCategory === category.id 
-                        ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg' 
-                        : 'hover:bg-gray-100 text-gray-700'
-                    }`}
-                  >
-                    <Icon className={`w-5 h-5 ${selectedCategory === category.id ? 'text-white' : category.color}`} />
-                    <span className="font-medium">{t[category.id]}</span>
-                    {count > 0 && (
-                      <span className="ml-auto bg-gray-200 text-gray-700 px-2 py-1 rounded-full text-xs">
-                        {count}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="border-t pt-4">
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">{t.sortBy}</label>
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="name">{t.name}</option>
-                  <option value="date">{t.date}</option>
-                  <option value="category">{t.category}</option>
-                </select>
-              </div>
-
-              <div className="space-y-2">
-                <button
-                  onClick={exportData}
-                  className="w-full flex items-center space-x-2 px-4 py-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>{t.export}</span>
-                </button>
-                
-                <label className="w-full flex items-center space-x-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer">
-                  <Upload className="w-4 h-4" />
-                  <span>{t.import}</span>
-                  <input
-                    type="file"
-                    accept=".json"
-                    onChange={importData}
-                    className="hidden"
-                  />
-                </label>
-              </div>
-            </div>
-          </div>
-        </aside>
-
-        {/* Main Content */}
-        <main className="flex-1 p-6">
-          {filteredAndSortedUrls.length === 0 ? (
-            <div className="text-center py-20">
-              <BookOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-gray-600 mb-2">
-                {searchTerm || selectedCategory !== 'all' ? t.noResults : t.addFirst}
-              </h3>
-              {!searchTerm && selectedCategory === 'all' && (
-                <button
-                  onClick={() => setIsAddingUrl(true)}
-                  className="mt-4 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all"
-                >
-                  {t.addNew}
-                </button>
-              )}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredAndSortedUrls.map((url) => {
-                const categoryInfo = categories.find(cat => cat.id === url.category);
-                const Icon = categoryInfo?.icon || Globe;
-                
-                return (
-                  <div key={url.id} className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100">
-                    <div className="p-6">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center space-x-3">
-                          <div className="p-2 rounded-lg bg-gray-50">
-                            <Icon className={`w-5 h-5 ${categoryInfo?.color || 'text-gray-600'}`} />
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-gray-900 line-clamp-1">{url.name}</h3>
-                            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-                              {t[url.category]}
-                            </span>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center space-x-1">
-                          <button
-                            onClick={() => handleEditUrl(url)}
-                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          >
-                            <Edit3 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteUrl(url.id)}
-                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-
-                      {url.description && (
-                        <p className="text-gray-600 text-sm mb-4 line-clamp-2">{url.description}</p>
-                      )}
-                      
-                      <div className="mb-4">
-                        <a
-                          href={url.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center space-x-1 truncate"
-                        >
-                          <span className="truncate">{url.url}</span>
-                          <ExternalLink className="w-3 h-3 flex-shrink-0" />
-                        </a>
-                      </div>
-
-                      <div className="flex items-center justify-between space-x-2">
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => handleShare(url)}
-                            className="flex items-center space-x-1 px-3 py-2 bg-blue-100 hover:bg-blue-200 rounded-lg transition-colors text-sm text-blue-700"
-                          >
-                            <Share2 className="w-4 h-4" />
-                            <span>{t.share}</span>
-                          </button>
-                          
-                          <button
-                            onClick={() => copyToClipboard(url.url, url.id)}
-                            className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                          >
-                            {copiedUrl === url.id ? (
-                              <Check className="w-4 h-4 text-green-600" />
-                            ) : (
-                              <Copy className="w-4 h-4" />
-                            )}
-                          </button>
-                          
-                          <button
-                            onClick={() => setShowQRCode(url)}
-                            className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                          >
-                            <QrCode className="w-4 h-4" />
-                          </button>
-                        </div>
-                        
-                        <span className="text-xs text-gray-400">
-                          {new Date(url.dateAdded).toLocaleDateString()}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+          {getSubcategories().length > 0 && (
+            <select
+              value={selectedSubcategory}
+              onChange={(e) => setSelectedSubcategory(e.target.value)}
+              className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="all">All Subcategories</option>
+              {getSubcategories().map(subcategory => (
+                <option key={subcategory.id} value={subcategory.id}>{subcategory.name}</option>
+              ))}
+            </select>
           )}
-        </main>
+        </div>
       </div>
 
-      {/* Add/Edit URL Modal */}
-      {isAddingUrl && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-screen overflow-y-auto">
-            <div className="p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-6">
-                {editingUrl ? `${t.edit} ${t.urlLabel}` : `${t.addNew} ${t.urlLabel}`}
-              </h2>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">{t.urlLabel}</label>
-                  <input
-                    type="text"
-                    value={newUrl.name}
-                    onChange={(e) => setNewUrl({...newUrl, name: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Resource name..."
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">{t.urlAddress}</label>
-                  <input
-                    type="url"
-                    value={newUrl.url}
-                    onChange={(e) => {
-                      setNewUrl({...newUrl, url: e.target.value});
-                      validateAndCorrectUrl(e.target.value);
-                    }}
-                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                      newUrl.url && !urlValidation.isValid ? 'border-red-300 bg-red-50' : 'border-gray-200'
-                    }`}
-                    placeholder="https://..."
-                  />
-                  
-                  {/* URL Validation Feedback */}
-                  {newUrl.url && (
-                    <div className="mt-2">
-                      {urlValidation.message && (
-                        <div className={`flex items-center space-x-2 text-sm ${
-                          urlValidation.isValid ? 'text-green-600' : 'text-red-600'
-                        }`}>
-                          {urlValidation.isValid ? (
-                            <Check className="w-4 h-4" />
-                          ) : (
-                            <X className="w-4 h-4" />
-                          )}
-                          <span>{urlValidation.message}</span>
-                        </div>
-                      )}
-                      
-                      {urlValidation.suggestion && (
-                        <div className="mt-1 p-2 bg-blue-50 border border-blue-200 rounded-lg">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm text-blue-700">{t.urlSuggestion}</p>
-                              <p className="text-sm font-mono text-blue-800">{urlValidation.suggestion}</p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setNewUrl({...newUrl, url: urlValidation.suggestion});
-                                setUrlValidation({ isValid: true, message: t.urlValid, suggestion: '' });
-                              }}
-                              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
-                            >
-                              Use This
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+      {/* URL List */}
+      <div className="p-4">
+        <div className="grid gap-4">
+          {filteredUrls.map(url => (
+            <div key={url.id} className="bg-white p-4 rounded-lg shadow-sm border">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h3 className="font-semibold text-lg">{url.title}</h3>
+                  <a
+                    href={url.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-800 flex items-center gap-1 text-sm"
+                  >
+                    {url.url}
+                    <ExternalLink size={12} />
+                  </a>
+                  {url.notes && (
+                    <p className="text-gray-600 text-sm mt-1">{url.notes}</p>
                   )}
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">{t.selectCategory}</label>
-                  <select
-                    value={newUrl.category}
-                    onChange={(e) => setNewUrl({...newUrl, category: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">{t.selectCategory}</option>
-                    {categories.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {t[category.id]}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">{t.language}</label>
-                  <select
-                    value={newUrl.language}
-                    onChange={(e) => setNewUrl({...newUrl, language: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="thai">{t.thai}</option>
-                    <option value="english">{t.english}</option>
-                    <option value="multilingual">{t.multilingual}</option>
-                    <option value="dialects">{t.dialects}</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">{t.description}</label>
-                  <textarea
-                    value={newUrl.description}
-                    onChange={(e) => setNewUrl({...newUrl, description: e.target.value})}
-                    rows={3}
-                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Optional description..."
-                  />
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-end space-x-4 mt-6">
-                <button
-                  onClick={() => {
-                    setIsAddingUrl(false);
-                    setEditingUrl(null);
-                    setNewUrl({
-                      name: '',
-                      url: '',
-                      category: '',
-                      description: '',
-                      language: 'multilingual',
-                      dateAdded: new Date().toISOString()
-                    });
-                  }}
-                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  {t.cancel}
-                </button>
-                <button
-                  onClick={editingUrl ? handleUpdateUrl : handleAddUrl}
-                  disabled={!newUrl.name || !newUrl.url || !newUrl.category || !urlValidation.isValid}
-                  className="px-6 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {t.save}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Share Modal */}
-      {showShareModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-screen overflow-y-auto">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold text-gray-900">{t.share} {showShareModal.name}</h3>
-                <button
-                  onClick={() => setShowShareModal(null)}
-                  className="p-1 rounded-lg hover:bg-gray-100"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              
-              <div className="space-y-4">
-                {/* QR Code */}
-                <div className="text-center p-4 bg-gray-50 rounded-lg">
-                  <img
-                    src={generateQRCode(showShareModal.url)}
-                    alt="QR Code"
-                    className="mx-auto border rounded-lg shadow-sm mb-2"
-                  />
-                  <p className="text-sm text-gray-600">Scan to visit</p>
-                </div>
-
-                {/* Share Text Preview */}
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <h4 className="font-medium text-gray-900 mb-2">Share Text:</h4>
-                  <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans">
-                    {showShareModal.shareText}
-                  </pre>
-                </div>
-
-                {/* Share Options */}
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => copyShareText(showShareModal.shareText, showShareModal.id)}
-                    className="flex items-center justify-center space-x-2 px-4 py-3 bg-green-100 hover:bg-green-200 rounded-lg transition-colors text-green-700"
-                  >
-                    {copiedUrl === `share-${showShareModal.id}` ? (
-                      <>
-                        <Check className="w-4 h-4" />
-                        <span className="text-sm">{t.copied}</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-4 h-4" />
-                        <span className="text-sm">Copy All</span>
-                      </>
+                  <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                    {url.category && (
+                      <span className="bg-gray-100 px-2 py-1 rounded">
+                        {categories.find(c => c.id === url.category)?.name || url.category}
+                      </span>
                     )}
-                  </button>
-                  
+                    {url.subcategory && (
+                      <span className="bg-gray-100 px-2 py-1 rounded">
+                        {categories.find(c => c.id === url.category)?.subcategories.find(s => s.id === url.subcategory)?.name || url.subcategory}
+                      </span>
+                    )}
+                    <span className={`px-2 py-1 rounded ${
+                      url.status === 'working' ? 'bg-green-100 text-green-800' :
+                      url.status === 'broken' ? 'bg-red-100 text-red-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {t[language][url.status] || url.status}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 ml-4">
                   <button
-                    onClick={() => shareViaEmail(showShareModal)}
-                    className="flex items-center justify-center space-x-2 px-4 py-3 bg-blue-100 hover:bg-blue-200 rounded-lg transition-colors text-blue-700"
+                    onClick={() => generateQRCode(url.url)}
+                    className="p-2 text-gray-600 hover:text-blue-600"
+                    title={t[language].qrCode}
                   >
-                    <Mail className="w-4 h-4" />
-                    <span className="text-sm">{t.email}</span>
+                    <QrCode size={16} />
                   </button>
-                  
                   <button
-                    onClick={() => shareViaWhatsApp(showShareModal)}
-                    className="flex items-center justify-center space-x-2 px-4 py-3 bg-green-100 hover:bg-green-200 rounded-lg transition-colors text-green-700"
+                    onClick={() => shareUrl(url)}
+                    className="p-2 text-gray-600 hover:text-green-600"
+                    title={t[language].share}
                   >
-                    <Share2 className="w-4 h-4" />
-                    <span className="text-sm">WhatsApp</span>
+                    <Share2 size={16} />
                   </button>
-                  
                   <button
-                    onClick={() => shareViaFacebook(showShareModal)}
-                    className="flex items-center justify-center space-x-2 px-4 py-3 bg-blue-100 hover:bg-blue-200 rounded-lg transition-colors text-blue-700"
+                    onClick={() => deleteUrl(url.id)}
+                    className="p-2 text-gray-600 hover:text-red-600"
+                    title={t[language].delete}
                   >
-                    <Share2 className="w-4 h-4" />
-                    <span className="text-sm">Facebook</span>
+                    <Trash2 size={16} />
                   </button>
                 </div>
               </div>
             </div>
-          </div>
+          ))}
+          {filteredUrls.length === 0 && (
+            <div className="text-center py-8 text-gray-500">
+              No resources found. Add some resources to get started!
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
-      {/* QR Code Modal */}
-      {showQRCode && (
+      {/* Add URL Modal */}
+      {showAddForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full">
-            <div className="text-center">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">{showQRCode.name}</h3>
-              <div className="mb-4">
-                <img
-                  src={generateQRCode(showQRCode.url)}
-                  alt="QR Code"
-                  className="mx-auto border rounded-lg shadow-sm"
-                />
-              </div>
-              <p className="text-sm text-gray-600 mb-4 break-all">{showQRCode.url}</p>
-              <button
-                onClick={() => setShowQRCode(null)}
-                className="px-6 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4">{t[language].addResource}</h2>
+            <div className="space-y-4">
+              <input
+                type="text"
+                placeholder={t[language].title_label}
+                value={newUrl.title}
+                onChange={(e) => setNewUrl({...newUrl, title: e.target.value})}
+                className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+              />
+              <input
+                type="url"
+                placeholder={t[language].url_label}
+                value={newUrl.url}
+                onChange={(e) => setNewUrl({...newUrl, url: e.target.value})}
+                className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+              />
+              <select
+                value={newUrl.category}
+                onChange={(e) => setNewUrl({...newUrl, category: e.target.value, subcategory: ''})}
+                className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
               >
-                {t.close}
+                <option value="">{t[language].category_label}</option>
+                {categories.map(category => (
+                  <option key={category.id} value={category.id}>{category.name}</option>
+                ))}
+              </select>
+              {newUrl.category && (
+                <select
+                  value={newUrl.subcategory}
+                  onChange={(e) => setNewUrl({...newUrl, subcategory: e.target.value})}
+                  className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">{t[language].subcategory_label}</option>
+                  {categories.find(c => c.id === newUrl.category)?.subcategories.map(sub => (
+                    <option key={sub.id} value={sub.id}>{sub.name}</option>
+                  ))}
+                </select>
+              )}
+              <textarea
+                placeholder={t[language].notes_label}
+                value={newUrl.notes}
+                onChange={(e) => setNewUrl({...newUrl, notes: e.target.value})}
+                className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                rows="3"
+              />
+            </div>
+            <div className="flex gap-2 mt-6">
+              <button
+                onClick={addUrl}
+                className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+              >
+                {t[language].save}
+              </button>
+              <button
+                onClick={() => setShowAddForm(false)}
+                className="flex-1 bg-gray-300 text-gray-700 py-2 rounded hover:bg-gray-400"
+              >
+                {t[language].cancel}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Sidebar Overlay */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 lg:hidden z-20"
-          onClick={() => setSidebarOpen(false)}
-        />
+      {/* Category Manager Modal */}
+      {showCategoryManager && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+            <h2 className="text-xl font-bold mb-4">{t[language].manageCategories}</h2>
+            
+            {/* Add new category */}
+            <div className="mb-6 p-4 bg-gray-50 rounded">
+              <h3 className="font-semibold mb-2">{t[language].addCategory}</h3>
+              <input
+                type="text"
+                placeholder={t[language].categoryName}
+                value={newCategory.name}
+                onChange={(e) => setNewCategory({...newCategory, name: e.target.value})}
+                className="w-full px-3 py-2 border rounded mb-2"
+              />
+              <div className="space-y-2">
+                <label className="font-medium text-sm">{t[language].subcategories}</label>
+                {newCategory.subcategories.map((sub, index) => (
+                  <div key={index} className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Subcategory name"
+                      value={sub}
+                      onChange={(e) => {
+                        const subs = [...newCategory.subcategories];
+                        subs[index] = e.target.value;
+                        setNewCategory({...newCategory, subcategories: subs});
+                      }}
+                      className="flex-1 px-3 py-1 border rounded text-sm"
+                    />
+                    <button
+                      onClick={() => {
+                        const subs = newCategory.subcategories.filter((_, i) => i !== index);
+                        setNewCategory({...newCategory, subcategories: subs});
+                      }}
+                      className="px-2 py-1 text-red-600 hover:bg-red-50 rounded"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  onClick={() => setNewCategory({...newCategory, subcategories: [...newCategory.subcategories, '']})}
+                  className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1"
+                >
+                  <Plus size={14} />
+                  {t[language].addSubcategory}
+                </button>
+              </div>
+              <button
+                onClick={addCategory}
+                className="w-full bg-green-500 text-white py-2 rounded hover:bg-green-600 mt-2"
+              >
+                {t[language].addCategory}
+              </button>
+            </div>
+
+            {/* Existing categories */}
+            <div className="space-y-4">
+              {categories.map((category, index) => (
+                <div key={category.id} className="border rounded p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-semibold">{category.name}</h4>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => moveCategoryUp(index)}
+                        disabled={index === 0}
+                        className="p-1 text-gray-600 hover:text-blue-600 disabled:opacity-50"
+                      >
+                        <ArrowUp size={14} />
+                      </button>
+                      <button
+                        onClick={() => moveCategoryDown(index)}
+                        disabled={index === categories.length - 1}
+                        className="p-1 text-gray-600 hover:text-blue-600 disabled:opacity-50"
+                      >
+                        <ArrowDown size={14} />
+                      </button>
+                      <button
+                        onClick={() => setEditingCategory(category.id)}
+                        className="p-1 text-gray-600 hover:text-blue-600"
+                      >
+                        <Edit3 size={14} />
+                      </button>
+                      <button
+                        onClick={() => deleteCategory(category.id)}
+                        className="p-1 text-gray-600 hover:text-red-600"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    Subcategories: {category.subcategories.map(sub => sub.name).join(', ')}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-2 mt-6">
+              <button
+                onClick={() => setShowCategoryManager(false)}
+                className="flex-1 bg-gray-300 text-gray-700 py-2 rounded hover:bg-gray-400"
+              >
+                {t[language].cancel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Import Modal */}
+      {showImportDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4">{t[language].bulkImport}</h2>
+            <textarea
+              placeholder={t[language].pasteUrls}
+              value={bulkImportText}
+              onChange={(e) => setBulkImportText(e.target.value)}
+              className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+              rows="10"
+            />
+            <div className="flex gap-2 mt-4">
+              <button
+                onClick={handleBulkImport}
+                className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+              >
+                Import
+              </button>
+              <button
+                onClick={() => setShowImportDialog(false)}
+                className="flex-1 bg-gray-300 text-gray-700 py-2 rounded hover:bg-gray-400"
+              >
+                {t[language].cancel}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
