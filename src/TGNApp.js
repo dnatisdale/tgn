@@ -15,6 +15,7 @@ const TGNApp = () => {
   const [copiedUrl, setCopiedUrl] = useState(null);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showInstallButton, setShowInstallButton] = useState(false);
+  const [urlValidation, setUrlValidation] = useState({ isValid: true, message: '', suggestion: '' });
 
   const translations = {
     en: {
@@ -55,6 +56,10 @@ const TGNApp = () => {
       copied: "Copied!",
       noResults: "No resources found",
       addFirst: "Add your first gospel resource to get started",
+      urlValid: "URL looks good!",
+      urlInvalid: "Please check this URL",
+      urlSuggestion: "Did you mean:",
+      checking: "Checking URL...",
       installApp: "Install App",
       close: "Close"
     },
@@ -96,6 +101,10 @@ const TGNApp = () => {
       copied: "คัดลอกแล้ว!",
       noResults: "ไม่พบทรัพยากร",
       addFirst: "เพิ่มทรัพยากรพระกิตติคุณแรกของคุณเพื่อเริ่มต้น",
+      urlValid: "URL ดูดี!",
+      urlInvalid: "กรุณาตรวจสอบ URL นี้",
+      urlSuggestion: "คุณหมายถึง:",
+      checking: "กำลังตรวจสอบ URL...",
       installApp: "ติดตั้งแอป",
       close: "ปิด"
     }
@@ -158,6 +167,78 @@ const TGNApp = () => {
     };
   }, []);
 
+  // URL validation and correction
+  const validateAndCorrectUrl = (inputUrl) => {
+    if (!inputUrl.trim()) {
+      setUrlValidation({ isValid: true, message: '', suggestion: '' });
+      return;
+    }
+
+    let url = inputUrl.trim().toLowerCase();
+    let suggestion = '';
+    let isValid = true;
+    let message = '';
+
+    // Common typo corrections
+    const corrections = {
+      // Common domain typos
+      'gooogle.com': 'google.com',
+      'googel.com': 'google.com',
+      'youtub.com': 'youtube.com',
+      'youutube.com': 'youtube.com',
+      'youtuve.com': 'youtube.com',
+      'facebok.com': 'facebook.com',
+      'facbook.com': 'facebook.com',
+      'globalrecording.net': 'globalrecordings.net',
+      'globalrecordings.com': 'globalrecordings.net',
+      '5fis.mobi': '5fish.mobi',
+      '5fish.com': '5fish.mobi',
+      // Common protocol typos
+      'htp://': 'http://',
+      'htps://': 'https://',
+      'http//': 'http://',
+      'https//': 'https://',
+      // Common missing parts
+      'www.': 'https://www.',
+      'http:www.': 'http://www.',
+      'https:www.': 'https://www.'
+    };
+
+    // Apply corrections
+    let correctedUrl = url;
+    for (const [typo, correction] of Object.entries(corrections)) {
+      if (correctedUrl.includes(typo)) {
+        correctedUrl = correctedUrl.replace(typo, correction);
+        suggestion = correctedUrl;
+        break;
+      }
+    }
+
+    // Add protocol if missing
+    if (!correctedUrl.startsWith('http://') && !correctedUrl.startsWith('https://')) {
+      if (!suggestion) suggestion = 'https://' + correctedUrl;
+    }
+
+    // Basic URL pattern validation
+    const urlPattern = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?(\?[;&a-z\d%_\.,~#=]*)?(\#[-a-z\d_]*)?$/i;
+    const urlToTest = suggestion || (correctedUrl.startsWith('http') ? correctedUrl : 'https://' + correctedUrl);
+    
+    if (!urlPattern.test(urlToTest)) {
+      isValid = false;
+      message = t.urlInvalid;
+    } else {
+      message = t.urlValid;
+    }
+
+    // Check for common issues
+    if (correctedUrl.includes('..')) {
+      isValid = false;
+      message = t.urlInvalid;
+    }
+
+    setUrlValidation({ isValid, message, suggestion });
+  };
+
   // Save language preference
   useEffect(() => {
     localStorage.setItem('tgnLanguage', language);
@@ -193,9 +274,9 @@ const TGNApp = () => {
   }, [urls, searchTerm, selectedCategory, sortBy]);
 
   const handleAddUrl = () => {
-    if (newUrl.name && newUrl.url && newUrl.category) {
-      // Ensure URL has proper protocol
-      let formattedUrl = newUrl.url.trim();
+    if (newUrl.name && newUrl.url && newUrl.category && urlValidation.isValid) {
+      // Use suggestion if available, otherwise format the URL
+      let formattedUrl = urlValidation.suggestion || newUrl.url.trim();
       if (!formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://')) {
         formattedUrl = 'https://' + formattedUrl;
       }
@@ -215,6 +296,7 @@ const TGNApp = () => {
         language: 'multilingual',
         dateAdded: new Date().toISOString()
       });
+      setUrlValidation({ isValid: true, message: '', suggestion: '' });
       setIsAddingUrl(false);
     }
   };
@@ -226,9 +308,9 @@ const TGNApp = () => {
   };
 
   const handleUpdateUrl = () => {
-    if (newUrl.name && newUrl.url && newUrl.category) {
-      // Ensure URL has proper protocol
-      let formattedUrl = newUrl.url.trim();
+    if (newUrl.name && newUrl.url && newUrl.category && urlValidation.isValid) {
+      // Use suggestion if available, otherwise format the URL
+      let formattedUrl = urlValidation.suggestion || newUrl.url.trim();
       if (!formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://')) {
         formattedUrl = 'https://' + formattedUrl;
       }
@@ -243,6 +325,7 @@ const TGNApp = () => {
         language: 'multilingual',
         dateAdded: new Date().toISOString()
       });
+      setUrlValidation({ isValid: true, message: '', suggestion: '' });
       setIsAddingUrl(false);
       setEditingUrl(null);
     }
@@ -661,10 +744,54 @@ const TGNApp = () => {
                   <input
                     type="url"
                     value={newUrl.url}
-                    onChange={(e) => setNewUrl({...newUrl, url: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    onChange={(e) => {
+                      setNewUrl({...newUrl, url: e.target.value});
+                      validateAndCorrectUrl(e.target.value);
+                    }}
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      newUrl.url && !urlValidation.isValid ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                    }`}
                     placeholder="https://..."
                   />
+                  
+                  {/* URL Validation Feedback */}
+                  {newUrl.url && (
+                    <div className="mt-2">
+                      {urlValidation.message && (
+                        <div className={`flex items-center space-x-2 text-sm ${
+                          urlValidation.isValid ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {urlValidation.isValid ? (
+                            <Check className="w-4 h-4" />
+                          ) : (
+                            <X className="w-4 h-4" />
+                          )}
+                          <span>{urlValidation.message}</span>
+                        </div>
+                      )}
+                      
+                      {urlValidation.suggestion && (
+                        <div className="mt-1 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm text-blue-700">{t.urlSuggestion}</p>
+                              <p className="text-sm font-mono text-blue-800">{urlValidation.suggestion}</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setNewUrl({...newUrl, url: urlValidation.suggestion});
+                                setUrlValidation({ isValid: true, message: t.urlValid, suggestion: '' });
+                              }}
+                              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
+                            >
+                              Use This
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 
                 <div>
@@ -729,7 +856,7 @@ const TGNApp = () => {
                 </button>
                 <button
                   onClick={editingUrl ? handleUpdateUrl : handleAddUrl}
-                  disabled={!newUrl.name || !newUrl.url || !newUrl.category}
+                  disabled={!newUrl.name || !newUrl.url || !newUrl.category || !urlValidation.isValid}
                   className="px-6 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {t.save}
