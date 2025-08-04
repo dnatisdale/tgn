@@ -632,6 +632,50 @@ const TGNApp = () => {
                   <div key={url.id} className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100">
                     <div className="p-6">
                       <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center space-x-3">
+                          <div className="p-2 rounded-lg bg-gray-50">
+                            <Icon className={`w-5 h-5 ${categoryInfo?.color || 'text-gray-600'}`} />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-gray-900 line-clamp-1">{url.name}</h3>
+                            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                              {t[url.category]}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center space-x-1">
+                          <button
+                            onClick={() => handleEditUrl(url)}
+                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteUrl(url.id)}
+                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {url.description && (
+                        <p className="text-gray-600 text-sm mb-4 line-clamp-2">{url.description}</p>
+                      )}
+                      
+                      <div className="mb-4">
+                        <a
+                          href={url.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center space-x-1 truncate"
+                        >
+                          <span className="truncate">{url.url}</span>
+                          <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                        </a>
+                      </div>
+
                       <div className="flex items-center justify-between space-x-2">
                         <div className="flex items-center space-x-2">
                           <button
@@ -942,49 +986,4 @@ const TGNApp = () => {
   );
 };
 
-export default TGNApp; items-center space-x-3">
-                          <div className="p-2 rounded-lg bg-gray-50">
-                            <Icon className={`w-5 h-5 ${categoryInfo?.color || 'text-gray-600'}`} />
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-gray-900 line-clamp-1">{url.name}</h3>
-                            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-                              {t[url.category]}
-                            </span>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center space-x-1">
-                          <button
-                            onClick={() => handleEditUrl(url)}
-                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          >
-                            <Edit3 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteUrl(url.id)}
-                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-
-                      {url.description && (
-                        <p className="text-gray-600 text-sm mb-4 line-clamp-2">{url.description}</p>
-                      )}
-                      
-                      <div className="mb-4">
-                        <a
-                          href={url.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center space-x-1 truncate"
-                        >
-                          <span className="truncate">{url.url}</span>
-                          <ExternalLink className="w-3 h-3 flex-shrink-0" />
-                        </a>
-                      </div>
-
-                      <div className="flex items-center justify-between space-x-2">
-                        <div className="flex
+export default TGNApp;
