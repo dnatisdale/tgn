@@ -143,12 +143,15 @@ const TGNApp = () => {
     localStorage.setItem('tgnUrls', JSON.stringify(urls));
   }, [urls]);
 
+  // Save language preference
+  useEffect(() => {
+    localStorage.setItem('tgnLanguage', language);
+  }, [language]);
+
   // PWA Install functionality
   useEffect(() => {
     const handleBeforeInstallPrompt = (e) => {
-      // Prevent the mini-infobar from appearing on mobile
       e.preventDefault();
-      // Save the event so it can be triggered later
       setDeferredPrompt(e);
       setShowInstallButton(true);
     };
@@ -167,6 +170,15 @@ const TGNApp = () => {
     };
   }, []);
 
+  const [newUrl, setNewUrl] = useState({
+    name: '',
+    url: '',
+    category: '',
+    description: '',
+    language: 'multilingual',
+    dateAdded: new Date().toISOString()
+  });
+
   // URL validation and correction
   const validateAndCorrectUrl = (inputUrl) => {
     if (!inputUrl.trim()) {
@@ -179,9 +191,7 @@ const TGNApp = () => {
     let isValid = true;
     let message = '';
 
-    // Common typo corrections
     const corrections = {
-      // Common domain typos
       'gooogle.com': 'google.com',
       'googel.com': 'google.com',
       'youtub.com': 'youtube.com',
@@ -193,18 +203,15 @@ const TGNApp = () => {
       'globalrecordings.com': 'globalrecordings.net',
       '5fis.mobi': '5fish.mobi',
       '5fish.com': '5fish.mobi',
-      // Common protocol typos
       'htp://': 'http://',
       'htps://': 'https://',
       'http//': 'http://',
       'https//': 'https://',
-      // Common missing parts
       'www.': 'https://www.',
       'http:www.': 'http://www.',
       'https:www.': 'https://www.'
     };
 
-    // Apply corrections
     let correctedUrl = url;
     for (const [typo, correction] of Object.entries(corrections)) {
       if (correctedUrl.includes(typo)) {
@@ -214,12 +221,10 @@ const TGNApp = () => {
       }
     }
 
-    // Add protocol if missing
     if (!correctedUrl.startsWith('http://') && !correctedUrl.startsWith('https://')) {
       if (!suggestion) suggestion = 'https://' + correctedUrl;
     }
 
-    // Basic URL pattern validation
     const urlPattern = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?(\?[;&a-z\d%_\.,~#=]*)?(\#[-a-z\d_]*)?$/i;
     const urlToTest = suggestion || (correctedUrl.startsWith('http') ? correctedUrl : 'https://' + correctedUrl);
     
@@ -230,7 +235,6 @@ const TGNApp = () => {
       message = t.urlValid;
     }
 
-    // Check for common issues
     if (correctedUrl.includes('..')) {
       isValid = false;
       message = t.urlInvalid;
@@ -239,45 +243,99 @@ const TGNApp = () => {
     setUrlValidation({ isValid, message, suggestion });
   };
 
-  const checkUrlAccessibility = async (url) => {
-    // This is a basic check - in a real app you might want to use a service
-    // For now, we'll just do pattern validation
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(true); // Assume URL is accessible for demo
-      }, 500);
-    });
-  };
-
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
-
-    // Show the install prompt
     deferredPrompt.prompt();
-
-    // Wait for the user to respond to the prompt
     const { outcome } = await deferredPrompt.userChoice;
-
     if (outcome === 'accepted') {
       setShowInstallButton(false);
     }
-
     setDeferredPrompt(null);
   };
 
-  // Save language preference
-  useEffect(() => {
-    localStorage.setItem('tgnLanguage', language);
-  }, [language]);
+  const generateQRCode = (url) => {
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`;
+    return qrCodeUrl;
+  };
 
-  const [newUrl, setNewUrl] = useState({
-    name: '',
-    url: '',
-    category: '',
-    description: '',
-    language: 'multilingual',
-    dateAdded: new Date().toISOString()
-  });
+  const createShareText = (resource) => {
+    const qrCodeUrl = generateQRCode(resource.url);
+    const categoryName = t[resource.category] || resource.category;
+    
+    let shareText = `📖 ${resource.name}\n`;
+    shareText += `🔗 ${resource.url}\n`;
+    shareText += `📂 ${t.category}: ${categoryName}\n`;
+    shareText += `🌐 ${t.language}: ${t[resource.language] || resource.language}\n`;
+    
+    if (resource.description) {
+      shareText += `📝 ${t.description}: ${resource.description}\n`;
+    }
+    
+    shareText += `📅 ${t.date}: ${new Date(resource.dateAdded).toLocaleDateString()}\n`;
+    shareText += `\n📱 QR Code: ${qrCodeUrl}\n`;
+    shareText += `\n✨ Shared via TGN - Thai Good News`;
+    
+    return shareText;
+  };
+
+  const handleShare = async (resource) => {
+    const shareText = createShareText(resource);
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: resource.name,
+          text: shareText,
+          url: resource.url
+        });
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          console.error('Error sharing:', err);
+          copyToClipboard(shareText, `share-${resource.id}`);
+        }
+      }
+    } else {
+      setShowShareModal({ ...resource, shareText });
+    }
+  };
+
+  const copyShareText = async (shareText, resourceId) => {
+    try {
+      await navigator.clipboard.writeText(shareText);
+      setCopiedUrl(`share-${resourceId}`);
+      setTimeout(() => setCopiedUrl(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy: ', err);
+    }
+  };
+
+  const shareViaEmail = (resource) => {
+    const shareText = createShareText(resource);
+    const subject = encodeURIComponent(`Gospel Resource: ${resource.name}`);
+    const body = encodeURIComponent(shareText);
+    window.open(`mailto:?subject=${subject}&body=${body}`);
+  };
+
+  const shareViaWhatsApp = (resource) => {
+    const shareText = createShareText(resource);
+    const encodedText = encodeURIComponent(shareText);
+    window.open(`https://wa.me/?text=${encodedText}`);
+  };
+
+  const shareViaFacebook = (resource) => {
+    const encodedUrl = encodeURIComponent(resource.url);
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`);
+  };
+
+  const copyToClipboard = async (text, urlId) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedUrl(urlId);
+      setTimeout(() => setCopiedUrl(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy: ', err);
+    }
+  };
 
   const filteredAndSortedUrls = useMemo(() => {
     let filtered = urls.filter(url => {
@@ -301,7 +359,6 @@ const TGNApp = () => {
 
   const handleAddUrl = () => {
     if (newUrl.name && newUrl.url && newUrl.category && urlValidation.isValid) {
-      // Use suggestion if available, otherwise format the URL
       let formattedUrl = urlValidation.suggestion || newUrl.url.trim();
       if (!formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://')) {
         formattedUrl = 'https://' + formattedUrl;
@@ -335,7 +392,6 @@ const TGNApp = () => {
 
   const handleUpdateUrl = () => {
     if (newUrl.name && newUrl.url && newUrl.category && urlValidation.isValid) {
-      // Use suggestion if available, otherwise format the URL
       let formattedUrl = urlValidation.suggestion || newUrl.url.trim();
       if (!formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://')) {
         formattedUrl = 'https://' + formattedUrl;
@@ -359,88 +415,6 @@ const TGNApp = () => {
 
   const handleDeleteUrl = (id) => {
     setUrls(urls.filter(url => url.id !== id));
-  };
-
-  const generateQRCode = (url) => {
-    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`;
-    return qrCodeUrl;
-  };
-
-  const createShareText = (resource) => {
-    const qrCodeUrl = generateQRCode(resource.url);
-    const categoryName = t[resource.category] || resource.category;
-    
-    let shareText = `📖 ${resource.name}\n`;
-    shareText += `🔗 ${resource.url}\n`;
-    shareText += `📂 ${t.category}: ${categoryName}\n`;
-    shareText += `🌐 ${t.language}: ${t[resource.language] || resource.language}\n`;
-    
-    if (resource.description) {
-      shareText += `📝 ${t.description}: ${resource.description}\n`;
-    }
-    
-    shareText += `📅 ${t.date}: ${new Date(resource.dateAdded).toLocaleDateString()}\n`;
-    shareText += `\n📱 QR Code: ${qrCodeUrl}\n`;
-    shareText += `\n✨ Shared via TGN - Thai Good News`;
-    
-    return shareText;
-  };
-
-  const handleShare = async (resource) => {
-    const shareText = createShareText(resource);
-    
-    if (navigator.share) {
-      // Use native sharing if available
-      try {
-        await navigator.share({
-          title: resource.name,
-          text: shareText,
-          url: resource.url
-        });
-      } catch (err) {
-        if (err.name !== 'AbortError') {
-          console.error('Error sharing:', err);
-          // Fallback to clipboard
-          copyToClipboard(shareText, `share-${resource.id}`);
-        }
-      }
-    } else {
-      // Fallback to showing share modal
-      setShowShareModal({ ...resource, shareText });
-    }
-  };
-
-  const copyShareText = async (shareText, resourceId) => {
-    try {
-      await navigator.clipboard.writeText(shareText);
-      setCopiedUrl(`share-${resourceId}`);
-      setTimeout(() => setCopiedUrl(null), 2000);
-    } catch (err) {
-      console.error('Failed to copy: ', err);
-    }
-  };
-
-  const shareViaEmail = (resource) => {
-    const shareText = createShareText(resource);
-    const subject = encodeURIComponent(`Gospel Resource: ${resource.name}`);
-    const body = encodeURIComponent(shareText);
-    window.open(`mailto:?subject=${subject}&body=${body}`);
-  };
-
-  const shareViaWhatsApp = (resource) => {
-    const shareText = createShareText(resource);
-    const encodedText = encodeURIComponent(shareText);
-    window.open(`https://wa.me/?text=${encodedText}`);
-  };
-
-  const copyToClipboard = async (text, urlId) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedUrl(urlId);
-      setTimeout(() => setCopiedUrl(null), 2000);
-    } catch (err) {
-      console.error('Failed to copy: ', err);
-    }
   };
 
   const exportData = () => {
@@ -658,78 +632,34 @@ const TGNApp = () => {
                   <div key={url.id} className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100">
                     <div className="p-6">
                       <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center space-x-3">
-                          <div className={`p-2 rounded-lg bg-gray-50`}>
-                            <Icon className={`w-5 h-5 ${categoryInfo?.color || 'text-gray-600'}`} />
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-gray-900 line-clamp-1">{url.name}</h3>
-                            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-                              {t[url.category]}
-                            </span>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center space-x-1">
-                          <button
-                            onClick={() => handleEditUrl(url)}
-                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          >
-                            <Edit3 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteUrl(url.id)}
-                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-
-                      {url.description && (
-                        <p className="text-gray-600 text-sm mb-4 line-clamp-2">{url.description}</p>
-                      )}
-                      
-                      <div className="mb-4">
-                        <a
-                          href={url.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center space-x-1 truncate"
-                        >
-                          <span className="truncate">{url.url}</span>
-                          <ExternalLink className="w-3 h-3 flex-shrink-0" />
-                        </a>
-                      </div>
-
                       <div className="flex items-center justify-between space-x-2">
                         <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => handleShare(url)}
-                          className="flex items-center space-x-1 px-3 py-2 bg-blue-100 hover:bg-blue-200 rounded-lg transition-colors text-sm text-blue-700"
-                        >
-                          <Share2 className="w-4 h-4" />
-                          <span>{t.share}</span>
-                        </button>
-                        
-                        <button
-                          onClick={() => copyToClipboard(url.url, url.id)}
-                          className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                        >
-                          {copiedUrl === url.id ? (
-                            <Check className="w-4 h-4 text-green-600" />
-                          ) : (
-                            <Copy className="w-4 h-4" />
-                          )}
-                        </button>
-                        
-                        <button
-                          onClick={() => setShowQRCode(url)}
-                          className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                        >
-                          <QrCode className="w-4 h-4" />
-                        </button>
-                      </div>
+                          <button
+                            onClick={() => handleShare(url)}
+                            className="flex items-center space-x-1 px-3 py-2 bg-blue-100 hover:bg-blue-200 rounded-lg transition-colors text-sm text-blue-700"
+                          >
+                            <Share2 className="w-4 h-4" />
+                            <span>{t.share}</span>
+                          </button>
+                          
+                          <button
+                            onClick={() => copyToClipboard(url.url, url.id)}
+                            className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                          >
+                            {copiedUrl === url.id ? (
+                              <Check className="w-4 h-4 text-green-600" />
+                            ) : (
+                              <Copy className="w-4 h-4" />
+                            )}
+                          </button>
+                          
+                          <button
+                            onClick={() => setShowQRCode(url)}
+                            className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                          >
+                            <QrCode className="w-4 h-4" />
+                          </button>
+                        </div>
                         
                         <span className="text-xs text-gray-400">
                           {new Date(url.dateAdded).toLocaleDateString()}
@@ -1012,4 +942,49 @@ const TGNApp = () => {
   );
 };
 
-export default TGNApp;
+export default TGNApp; items-center space-x-3">
+                          <div className={`p-2 rounded-lg bg-gray-50`}>
+                            <Icon className={`w-5 h-5 ${categoryInfo?.color || 'text-gray-600'}`} />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-gray-900 line-clamp-1">{url.name}</h3>
+                            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                              {t[url.category]}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center space-x-1">
+                          <button
+                            onClick={() => handleEditUrl(url)}
+                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteUrl(url.id)}
+                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {url.description && (
+                        <p className="text-gray-600 text-sm mb-4 line-clamp-2">{url.description}</p>
+                      )}
+                      
+                      <div className="mb-4">
+                        <a
+                          href={url.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center space-x-1 truncate"
+                        >
+                          <span className="truncate">{url.url}</span>
+                          <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                        </a>
+                      </div>
+
+                      <div className="flex items-center justify-between space-x-2">
+                        <div className="flex
