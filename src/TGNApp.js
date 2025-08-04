@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Plus, Edit3, Trash2, QrCode, Download, Upload, Menu, X, Globe, BookOpen, Music, Video, Heart, Users, MapPin, Languages, Star, ExternalLink, Copy, Check, Share2, Mail } from 'lucide-react';
+import { Search, Plus, Edit3, Trash2, QrCode, Download, Upload, Menu, X, Globe, BookOpen, Music, Video, Heart, Users, MapPin, Languages, Star, ExternalLink, Copy, Check, Share2, Mail, Smartphone } from 'lucide-react';
 
 const TGNApp = () => {
   const [language, setLanguage] = useState('en');
@@ -13,6 +13,8 @@ const TGNApp = () => {
   const [sortBy, setSortBy] = useState('name');
   const [showShareModal, setShowShareModal] = useState(null);
   const [copiedUrl, setCopiedUrl] = useState(null);
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [showInstallButton, setShowInstallButton] = useState(false);
 
   const translations = {
     en: {
@@ -53,6 +55,7 @@ const TGNApp = () => {
       copied: "Copied!",
       noResults: "No resources found",
       addFirst: "Add your first gospel resource to get started",
+      installApp: "Install App",
       close: "Close"
     },
     th: {
@@ -93,6 +96,7 @@ const TGNApp = () => {
       copied: "คัดลอกแล้ว!",
       noResults: "ไม่พบทรัพยากร",
       addFirst: "เพิ่มทรัพยากรพระกิตติคุณแรกของคุณเพื่อเริ่มต้น",
+      installApp: "ติดตั้งแอป",
       close: "ปิด"
     }
   };
@@ -129,6 +133,30 @@ const TGNApp = () => {
   useEffect(() => {
     localStorage.setItem('tgnUrls', JSON.stringify(urls));
   }, [urls]);
+
+  // PWA Install functionality
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e) => {
+      // Prevent the mini-infobar from appearing on mobile
+      e.preventDefault();
+      // Save the event so it can be triggered later
+      setDeferredPrompt(e);
+      setShowInstallButton(true);
+    };
+
+    const handleAppInstalled = () => {
+      setShowInstallButton(false);
+      setDeferredPrompt(null);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
 
   // Save language preference
   useEffect(() => {
@@ -358,6 +386,16 @@ const TGNApp = () => {
             </div>
             
             <div className="flex items-center space-x-4">
+              {showInstallButton && (
+                <button
+                  onClick={handleInstallClick}
+                  className="flex items-center space-x-2 px-3 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg transition-colors text-sm font-medium"
+                >
+                  <Smartphone className="w-4 h-4" />
+                  <span className="hidden sm:inline">{t.installApp}</span>
+                </button>
+              )}
+              
               <button
                 onClick={() => setLanguage(language === 'en' ? 'th' : 'en')}
                 className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
