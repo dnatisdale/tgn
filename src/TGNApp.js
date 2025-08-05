@@ -24,9 +24,8 @@ const TGNApp = () => {
   const [expandedCategories, setExpandedCategories] = useState(new Set());
   const [installPrompt, setInstallPrompt] = useState(null);
   const [showInstallButton, setShowInstallButton] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [confirmMessage, setConfirmMessage] = useState('');
-  const [onConfirmAction, setOnConfirmAction] = useState(() => () => {});
+  const [selectedUrls, setSelectedUrls] = useState(new Set());
+  const [showBulkActions, setShowBulkActions] = useState(false);
   
   // Form state
   const [newUrl, setNewUrl] = useState({ title: '', url: '', category: '', subcategory: '', notes: '' });
@@ -46,6 +45,15 @@ const TGNApp = () => {
       exportData: 'Export Data',
       installApp: 'Install App',
       checkUrls: 'Check URLs',
+      selectAll: 'Select All',
+      selectNone: 'Select None',
+      selectCategory: 'Select Category',
+      bulkActions: 'Bulk Actions',
+      deleteSelected: 'Delete Selected',
+      checkSelected: 'Check Selected',
+      exportSelected: 'Export Selected',
+      moveSelected: 'Move Selected',
+      selectedCount: 'Selected',
       title_label: 'Title',
       url_label: 'URL',
       category_label: 'Category',
@@ -81,6 +89,15 @@ const TGNApp = () => {
       exportData: 'ส่งออกข้อมูล',
       installApp: 'ติดตั้งแอป',
       checkUrls: 'ตรวจสอบ URL',
+      selectAll: 'เลือกทั้งหมด',
+      selectNone: 'ไม่เลือก',
+      selectCategory: 'เลือกหมวดหมู่',
+      bulkActions: 'การดำเนินการกลุ่ม',
+      deleteSelected: 'ลบที่เลือก',
+      checkSelected: 'ตรวจสอบที่เลือก',
+      exportSelected: 'ส่งออกที่เลือก',
+      moveSelected: 'ย้ายที่เลือก',
+      selectedCount: 'เลือกแล้ว',
       title_label: 'ชื่อ',
       url_label: 'URL',
       category_label: 'หมวดหมู่',
@@ -308,7 +325,90 @@ const TGNApp = () => {
     }
   };
 
-  // Category management
+  // Selection management
+  const toggleUrlSelection = (urlId) => {
+    const newSelected = new Set(selectedUrls);
+    if (newSelected.has(urlId)) {
+      newSelected.delete(urlId);
+    } else {
+      newSelected.add(urlId);
+    }
+    setSelectedUrls(newSelected);
+  };
+
+  const selectAll = () => {
+    setSelectedUrls(new Set(filteredUrls.map(url => url.id)));
+  };
+
+  const selectNone = () => {
+    setSelectedUrls(new Set());
+  };
+
+  const selectByCategory = (categoryId, subcategoryId = null) => {
+    const urlsInCategory = filteredUrls.filter(url => {
+      if (subcategoryId) {
+        return url.category === categoryId && url.subcategory === subcategoryId;
+      }
+      return url.category === categoryId;
+    });
+    
+    const newSelected = new Set(selectedUrls);
+    urlsInCategory.forEach(url => newSelected.add(url.id));
+    setSelectedUrls(newSelected);
+  };
+
+  // Bulk actions
+  const bulkDeleteSelected = () => {
+    if (selectedUrls.size === 0) return;
+    
+    const confirmMessage = `Delete ${selectedUrls.size} selected URLs? This cannot be undone.`;
+    if (confirm(confirmMessage)) {
+      setUrls(urls.filter(url => !selectedUrls.has(url.id)));
+      setSelectedUrls(new Set());
+    }
+  };
+
+  const bulkCheckSelected = async () => {
+    if (selectedUrls.size === 0) return;
+    
+    const selectedUrlObjects = urls.filter(url => selectedUrls.has(url.id));
+    
+    for (const url of selectedUrlObjects) {
+      // Update status to checking
+      setUrls(prevUrls => 
+        prevUrls.map(u => 
+          u.id === url.id ? { ...u, status: 'checking' } : u
+        )
+      );
+      
+      const status = await checkUrlStatus(url.url);
+      setUrls(prevUrls => 
+        prevUrls.map(u => 
+          u.id === url.id ? { ...u, status } : u
+        )
+      );
+    }
+  };
+
+  const bulkExportSelected = () => {
+    if (selectedUrls.size === 0) return;
+    
+    const selectedUrlObjects = urls.filter(url => selectedUrls.has(url.id));
+    const data = { 
+      urls: selectedUrlObjects, 
+      categories,
+      exported: new Date().toISOString(),
+      count: selectedUrlObjects.length
+    };
+    
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tgn-selected-${selectedUrls.size}-urls-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
   const addCategory = () => {
     if (!newCategory.name.trim()) return;
     
@@ -369,10 +469,10 @@ const TGNApp = () => {
     
     // Show suggestions if any corrections were made
     if (suggestions.length > 0) {
-      setConfirmMessage(`URL corrections made:\n${suggestions.join('\n')}\n\nProceed with corrected URL?`;
-      setOnConfirmAction(() => addAndCheck);
-      setShowConfirm(true);
-      return;
+      const confirmMessage = `URL corrections made:\n${suggestions.join('\n')}\n\nProceed with corrected URL?`;
+      if (!confirm(confirmMessage)) {
+        return;
+      }
     }
     
     const url = {
@@ -942,32 +1042,6 @@ const TGNApp = () => {
           </div>
         </div>
       )}
-    
-      {showConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded shadow max-w-md w-full">
-            <p className="mb-4 whitespace-pre-line">{confirmMessage}</p>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => {
-                  setShowConfirm(false);
-                  onConfirmAction();
-                }}
-                className="bg-blue-600 text-white px-4 py-2 rounded"
-              >
-                Yes
-              </button>
-              <button
-                onClick={() => setShowConfirm(false)}
-                className="bg-gray-300 text-gray-700 px-4 py-2 rounded"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 };
