@@ -470,7 +470,7 @@ const TGNApp = () => {
     // Show suggestions if any corrections were made
     if (suggestions.length > 0) {
       const confirmMessage = `URL corrections made:\n${suggestions.join('\n')}\n\nProceed with corrected URL?`;
-      if (!windowconfirm(confirmMessage)) {
+      if (!window.confirm(confirmMessage)) {
         return;
       }
     }
