@@ -63,7 +63,10 @@ const TGNApp = () => {
       urlStatus: 'URL Status',
       working: 'Working',
       broken: 'Broken',
-      unknown: 'Unknown'
+      unknown: 'Unknown',
+      checking: 'Checking...',
+      timeout: 'Timeout',
+      invalid: 'Invalid'
     },
     th: {
       title: 'ข่าวดีไทย',
@@ -95,7 +98,10 @@ const TGNApp = () => {
       urlStatus: 'สถานะ URL',
       working: 'ใช้งานได้',
       broken: 'เสียหาย',
-      unknown: 'ไม่ทราบ'
+      unknown: 'ไม่ทราบ',
+      checking: 'กำลังตรวจสอบ...',
+      timeout: 'หมดเวลา',
+      invalid: 'ไม่ถูกต้อง'
     }
   };
 
@@ -183,21 +189,31 @@ const TGNApp = () => {
 
   // URL validation and correction
   const validateAndCorrectUrl = (url) => {
-    if (!url) return { corrected: '', isValid: false };
+    if (!url) return { corrected: '', isValid: false, suggestions: [] };
     
     let corrected = url.trim();
+    let suggestions = [];
     
-    // Common typo corrections
+    // Common typo corrections - use word boundaries to prevent double corrections
     const corrections = {
-      'youtub.com': 'youtube.com',
-      'youtube.co': 'youtube.com',
-      'youtu.be': 'youtu.be', // Keep this as is
-      'globalrecording.net': 'globalrecordings.net',
-      '5fish.mob': '5fish.mobi'
+      'youtub\\.com\\b': 'youtube.com',
+      'youtube\\.co\\b': 'youtube.com', 
+      'globalrecording\\.net\\b': 'globalrecordings.net',
+      '5fish\\.mob\\b': '5fish.mobi',
+      'gobalrecordings\\.net\\b': 'globalrecordings.net',
+      'globelrecordings\\.net\\b': 'globalrecordings.net'
     };
     
-    Object.entries(corrections).forEach(([typo, correct]) => {
-      corrected = corrected.replace(typo, correct);
+    // Apply corrections with word boundaries
+    Object.entries(corrections).forEach(([typoPattern, correct]) => {
+      const regex = new RegExp(typoPattern, 'gi');
+      if (regex.test(corrected)) {
+        const original = corrected;
+        corrected = corrected.replace(regex, correct);
+        if (original !== corrected) {
+          suggestions.push(`Corrected: ${original} → ${corrected}`);
+        }
+      }
     });
     
     // Add https if missing
@@ -205,18 +221,75 @@ const TGNApp = () => {
       corrected = 'https://' + corrected;
     }
     
-    const isValid = /^https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)$/.test(corrected);
+    // Enhanced URL validation
+    const urlPattern = /^https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)$/;
+    const isValid = urlPattern.test(corrected);
     
-    return { corrected, isValid };
+    return { corrected, isValid, suggestions };
   };
 
-  // Check URL status
+  // Real URL checking function
   const checkUrlStatus = async (url) => {
     try {
-      const response = await fetch(url, { method: 'HEAD', mode: 'no-cors' });
-      return 'working';
+      // Use a CORS proxy service to check URLs
+      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
+      const response = await fetch(proxyUrl, {
+        method: 'GET',
+        signal: controller.signal,
+        headers: {
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+        }
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (response.ok) {
+        return 'working';
+      } else if (response.status === 404) {
+        return 'broken';
+      } else {
+        return 'unknown';
+      }
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        return 'timeout';
+      }
+      // Fallback: try alternative validation methods
+      return await fallbackUrlCheck(url);
+    }
+  };
+
+  // Fallback URL checking
+  const fallbackUrlCheck = async (url) => {
+    try {
+      // Try to create an image element to test if domain resolves
+      return new Promise((resolve) => {
+        const img = new Image();
+        const timeout = setTimeout(() => resolve('unknown'), 5000);
+        
+        img.onload = () => {
+          clearTimeout(timeout);
+          resolve('working');
+        };
+        
+        img.onerror = () => {
+          clearTimeout(timeout);
+          resolve('broken');
+        };
+        
+        // Extract domain for basic connectivity test
+        const domain = url.match(/https?:\/\/([^\/]+)/)?.[1];
+        if (domain) {
+          img.src = `https://${domain}/favicon.ico?t=${Date.now()}`;
+        } else {
+          resolve('invalid');
+        }
+      });
     } catch {
-      return 'unknown'; // Can't determine due to CORS
+      return 'unknown';
     }
   };
 
@@ -279,9 +352,25 @@ const TGNApp = () => {
 
   // URL management
   const addUrl = () => {
-    const { corrected, isValid } = validateAndCorrectUrl(newUrl.url);
+    const { corrected, isValid, suggestions } = validateAndCorrectUrl(newUrl.url);
     
-    if (!newUrl.title.trim() || !isValid) return;
+    if (!newUrl.title.trim()) {
+      alert('Please enter a title');
+      return;
+    }
+    
+    if (!isValid) {
+      alert('Please enter a valid URL');
+      return;
+    }
+    
+    // Show suggestions if any corrections were made
+    if (suggestions.length > 0) {
+      const confirmMessage = `URL corrections made:\n${suggestions.join('\n')}\n\nProceed with corrected URL?`;
+      if (!confirm(confirmMessage)) {
+        return;
+      }
+    }
     
     const url = {
       id: Date.now().toString(),
@@ -291,12 +380,21 @@ const TGNApp = () => {
       subcategory: newUrl.subcategory,
       notes: newUrl.notes,
       dateAdded: new Date().toISOString(),
-      status: 'unknown'
+      status: 'checking'
     };
     
     setUrls([...urls, url]);
     setNewUrl({ title: '', url: '', category: '', subcategory: '', notes: '' });
     setShowAddForm(false);
+    
+    // Check URL status immediately after adding
+    checkUrlStatus(corrected).then(status => {
+      setUrls(prevUrls => 
+        prevUrls.map(u => 
+          u.id === url.id ? { ...u, status } : u
+        )
+      );
+    });
   };
 
   const deleteUrl = (id) => {
@@ -307,9 +405,11 @@ const TGNApp = () => {
   const handleBulkImport = () => {
     const lines = bulkImportText.split('\n').filter(line => line.trim());
     const newUrls = [];
+    const invalidUrls = [];
+    const corrections = [];
     
     lines.forEach(line => {
-      const { corrected, isValid } = validateAndCorrectUrl(line.trim());
+      const { corrected, isValid, suggestions } = validateAndCorrectUrl(line.trim());
       if (isValid) {
         const url = {
           id: Date.now().toString() + Math.random(),
@@ -319,13 +419,47 @@ const TGNApp = () => {
           subcategory: '',
           notes: 'Bulk imported',
           dateAdded: new Date().toISOString(),
-          status: 'unknown'
+          status: 'checking'
         };
         newUrls.push(url);
+        if (suggestions.length > 0) {
+          corrections.push(...suggestions);
+        }
+      } else {
+        invalidUrls.push(line.trim());
       }
     });
     
-    setUrls([...urls, ...newUrls]);
+    // Show import summary
+    let message = `Import Summary:\n✅ Valid URLs: ${newUrls.length}\n❌ Invalid URLs: ${invalidUrls.length}`;
+    
+    if (corrections.length > 0) {
+      message += `\n\n🔧 Auto-corrections made:\n${corrections.join('\n')}`;
+    }
+    
+    if (invalidUrls.length > 0) {
+      message += `\n\n❌ Invalid URLs (not imported):\n${invalidUrls.slice(0, 5).join('\n')}`;
+      if (invalidUrls.length > 5) {
+        message += `\n... and ${invalidUrls.length - 5} more`;
+      }
+    }
+    
+    alert(message);
+    
+    if (newUrls.length > 0) {
+      setUrls([...urls, ...newUrls]);
+      
+      // Check URL status for all imported URLs
+      newUrls.forEach(async (url) => {
+        const status = await checkUrlStatus(url.url);
+        setUrls(prevUrls => 
+          prevUrls.map(u => 
+            u.id === url.id ? { ...u, status } : u
+          )
+        );
+      });
+    }
+    
     setBulkImportText('');
     setShowImportDialog(false);
   };
@@ -553,6 +687,9 @@ const TGNApp = () => {
                     <span className={`px-2 py-1 rounded ${
                       url.status === 'working' ? 'bg-green-100 text-green-800' :
                       url.status === 'broken' ? 'bg-red-100 text-red-800' :
+                      url.status === 'checking' ? 'bg-blue-100 text-blue-800' :
+                      url.status === 'timeout' ? 'bg-yellow-100 text-yellow-800' :
+                      url.status === 'invalid' ? 'bg-red-100 text-red-800' :
                       'bg-gray-100 text-gray-800'
                     }`}>
                       {t[language][url.status] || url.status}
