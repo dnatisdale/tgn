@@ -22,6 +22,8 @@ const TGNApp = () => {
   const [installPrompt, setInstallPrompt] = useState(null);
   const [showInstallButton, setShowInstallButton] = useState(false);
   const [selectedUrls, setSelectedUrls] = useState(new Set());
+  const [editingCategory, setEditingCategory] = useState(null);
+  const [editingCategoryData, setEditingCategoryData] = useState({ name: '', subcategories: [] });
   
   // Form state
   const [newUrl, setNewUrl] = useState({ title: '', url: '', category: '', subcategory: '', notes: '' });
@@ -60,7 +62,12 @@ const TGNApp = () => {
       delete: 'Delete',
       share: 'Share',
       qrCode: 'QR Code',
-      addCategory: 'Add Category',
+      editCategory: 'Edit Category',
+      updateCategory: 'Update Category',
+      duplicateCategory: 'Duplicate Category',
+      duplicateSubcategory: 'Duplicate Subcategory',
+      categoryExists: 'Category already exists',
+      subcategoryExists: 'Subcategory already exists in this category',
       categoryName: 'Category Name',
       subcategories: 'Subcategories',
       addSubcategory: 'Add Subcategory',
@@ -104,7 +111,12 @@ const TGNApp = () => {
       delete: 'ลบ',
       share: 'แชร์',
       qrCode: 'QR Code',
-      addCategory: 'เพิ่มหมวดหมู่',
+      editCategory: 'แก้ไขหมวดหมู่',
+      updateCategory: 'อัปเดตหมวดหมู่',
+      duplicateCategory: 'หมวดหมู่ซ้ำ',
+      duplicateSubcategory: 'หมวดหมู่ย่อยซ้ำ',
+      categoryExists: 'หมวดหมู่นี้มีอยู่แล้ว',
+      subcategoryExists: 'หมวดหมู่ย่อยนี้มีอยู่แล้วในหมวดหมู่นี้',
       categoryName: 'ชื่อหมวดหมู่',
       subcategories: 'หมวดหมู่ย่อย',
       addSubcategory: 'เพิ่มหมวดหมู่ย่อย',
@@ -578,22 +590,120 @@ const TGNApp = () => {
   };
 
   // Category management
+  const checkDuplicateCategory = (name, excludeId = null) => {
+    return categories.some(cat => 
+      cat.name.toLowerCase() === name.toLowerCase() && cat.id !== excludeId
+    );
+  };
+
+  const checkDuplicateSubcategory = (categorySubcategories, name) => {
+    return categorySubcategories.some(sub => 
+      sub.toLowerCase() === name.toLowerCase()
+    );
+  };
+
   const addCategory = () => {
-    if (!newCategory.name.trim()) return;
+    if (!newCategory.name.trim()) {
+      alert('Please enter a category name');
+      return;
+    }
+    
+    // Check for duplicate category
+    if (checkDuplicateCategory(newCategory.name.trim())) {
+      alert(`${t[language].categoryExists}: "${newCategory.name.trim()}"`);
+      return;
+    }
+    
+    // Check for duplicate subcategories within this category
+    const subcategoryNames = newCategory.subcategories.filter(sub => sub.trim());
+    const duplicates = [];
+    const seen = new Set();
+    
+    subcategoryNames.forEach(sub => {
+      const trimmedSub = sub.trim().toLowerCase();
+      if (seen.has(trimmedSub)) {
+        duplicates.push(sub.trim());
+      } else {
+        seen.add(trimmedSub);
+      }
+    });
+    
+    if (duplicates.length > 0) {
+      alert(`${t[language].duplicateSubcategory}: ${duplicates.join(', ')}`);
+      return;
+    }
     
     const category = {
       id: Date.now().toString(),
-      name: newCategory.name,
-      subcategories: newCategory.subcategories
-        .filter(sub => sub.trim())
-        .map(sub => ({
-          id: Date.now().toString() + Math.random(),
-          name: sub.trim()
-        }))
+      name: newCategory.name.trim(),
+      subcategories: subcategoryNames.map(sub => ({
+        id: Date.now().toString() + Math.random(),
+        name: sub.trim()
+      }))
     };
     
     setCategories([...categories, category]);
     setNewCategory({ name: '', subcategories: [''] });
+  };
+
+  const startEditCategory = (category) => {
+    setEditingCategory(category.id);
+    setEditingCategoryData({
+      name: category.name,
+      subcategories: category.subcategories.map(sub => sub.name)
+    });
+  };
+
+  const cancelEditCategory = () => {
+    setEditingCategory(null);
+    setEditingCategoryData({ name: '', subcategories: [] });
+  };
+
+  const updateCategory = () => {
+    if (!editingCategoryData.name.trim()) {
+      alert('Please enter a category name');
+      return;
+    }
+    
+    // Check for duplicate category (excluding current one)
+    if (checkDuplicateCategory(editingCategoryData.name.trim(), editingCategory)) {
+      alert(`${t[language].categoryExists}: "${editingCategoryData.name.trim()}"`);
+      return;
+    }
+    
+    // Check for duplicate subcategories within this category
+    const subcategoryNames = editingCategoryData.subcategories.filter(sub => sub.trim());
+    const duplicates = [];
+    const seen = new Set();
+    
+    subcategoryNames.forEach(sub => {
+      const trimmedSub = sub.trim().toLowerCase();
+      if (seen.has(trimmedSub)) {
+        duplicates.push(sub.trim());
+      } else {
+        seen.add(trimmedSub);
+      }
+    });
+    
+    if (duplicates.length > 0) {
+      alert(`${t[language].duplicateSubcategory}: ${duplicates.join(', ')}`);
+      return;
+    }
+    
+    const updatedCategory = {
+      id: editingCategory,
+      name: editingCategoryData.name.trim(),
+      subcategories: subcategoryNames.map((sub, index) => ({
+        id: categories.find(c => c.id === editingCategory)?.subcategories[index]?.id || Date.now().toString() + Math.random(),
+        name: sub.trim()
+      }))
+    };
+    
+    setCategories(categories.map(cat => 
+      cat.id === editingCategory ? updatedCategory : cat
+    ));
+    
+    cancelEditCategory();
   };
 
   const deleteCategory = (categoryId) => {
@@ -1201,34 +1311,108 @@ const TGNApp = () => {
             <div className="space-y-4">
               {categories.map((category, index) => (
                 <div key={category.id} className="border rounded p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-semibold">{category.name}</h4>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => moveCategoryUp(index)}
-                        disabled={index === 0}
-                        className="p-1 text-gray-600 hover:text-blue-600 disabled:opacity-50"
-                      >
-                        <ArrowUp size={14} />
-                      </button>
-                      <button
-                        onClick={() => moveCategoryDown(index)}
-                        disabled={index === categories.length - 1}
-                        className="p-1 text-gray-600 hover:text-blue-600 disabled:opacity-50"
-                      >
-                        <ArrowDown size={14} />
-                      </button>
-                      <button
-                        onClick={() => deleteCategory(category.id)}
-                        className="p-1 text-gray-600 hover:text-red-600"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                  {editingCategory === category.id ? (
+                    // Edit mode
+                    <div className="space-y-4">
+                      <input
+                        type="text"
+                        placeholder={t[language].categoryName}
+                        value={editingCategoryData.name}
+                        onChange={(e) => setEditingCategoryData({...editingCategoryData, name: e.target.value})}
+                        className="w-full px-3 py-2 border rounded mb-2"
+                      />
+                      <div className="space-y-2">
+                        <label className="font-medium text-sm">{t[language].subcategories}</label>
+                        {editingCategoryData.subcategories.map((sub, subIndex) => (
+                          <div key={subIndex} className="flex gap-2">
+                            <input
+                              type="text"
+                              placeholder="Subcategory name"
+                              value={sub}
+                              onChange={(e) => {
+                                const subs = [...editingCategoryData.subcategories];
+                                subs[subIndex] = e.target.value;
+                                setEditingCategoryData({...editingCategoryData, subcategories: subs});
+                              }}
+                              className="flex-1 px-3 py-1 border rounded text-sm"
+                            />
+                            <button
+                              onClick={() => {
+                                const subs = editingCategoryData.subcategories.filter((_, i) => i !== subIndex);
+                                setEditingCategoryData({...editingCategoryData, subcategories: subs});
+                              }}
+                              className="px-2 py-1 text-red-600 hover:bg-red-50 rounded"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          onClick={() => setEditingCategoryData({...editingCategoryData, subcategories: [...editingCategoryData.subcategories, '']})}
+                          className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1"
+                        >
+                          <Plus size={14} />
+                          {t[language].addSubcategory}
+                        </button>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={updateCategory}
+                          className="flex-1 bg-green-500 text-white py-2 rounded hover:bg-green-600"
+                        >
+                          {t[language].updateCategory}
+                        </button>
+                        <button
+                          onClick={cancelEditCategory}
+                          className="flex-1 bg-gray-300 text-gray-700 py-2 rounded hover:bg-gray-400"
+                        >
+                          {t[language].cancel}
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    Subcategories: {category.subcategories.map(sub => sub.name).join(', ')}
-                  </div>
+                  ) : (
+                    // View mode
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-semibold">{category.name}</h4>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => moveCategoryUp(index)}
+                            disabled={index === 0}
+                            className="p-1 text-gray-600 hover:text-blue-600 disabled:opacity-50"
+                            title="Move up"
+                          >
+                            <ArrowUp size={14} />
+                          </button>
+                          <button
+                            onClick={() => moveCategoryDown(index)}
+                            disabled={index === categories.length - 1}
+                            className="p-1 text-gray-600 hover:text-blue-600 disabled:opacity-50"
+                            title="Move down"
+                          >
+                            <ArrowDown size={14} />
+                          </button>
+                          <button
+                            onClick={() => startEditCategory(category)}
+                            className="p-1 text-gray-600 hover:text-blue-600"
+                            title={t[language].editCategory}
+                          >
+                            <Edit3 size={14} />
+                          </button>
+                          <button
+                            onClick={() => deleteCategory(category.id)}
+                            className="p-1 text-gray-600 hover:text-red-600"
+                            title={t[language].delete}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        Subcategories: {category.subcategories.length > 0 ? category.subcategories.map(sub => sub.name).join(', ') : 'None'}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
