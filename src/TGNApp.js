@@ -362,9 +362,7 @@ const TGNApp = () => {
     if (selectedUrls.size === 0) return;
     
     const confirmMessage = `Delete ${selectedUrls.size} selected URLs? This cannot be undone.`;
-      setConfirmMessage("Are you sure you want to delete this category?");
-      setOnConfirmAction(() => () => handleDeleteCategory(category));
-      setShowConfirm(true);
+    if (confirm(confirmMessage)) {
       setUrls(urls.filter(url => !selectedUrls.has(url.id)));
       setSelectedUrls(new Set());
     }
@@ -470,10 +468,8 @@ const TGNApp = () => {
     }
     
     // Show suggestions if any corrections were made
-        setConfirmMessage("Are you sure you want to delete this URL?");
-        setOnConfirmAction(() => () => handleDeleteUrl(url.id));
-        setShowConfirm(true);
-        //       const confirmMessage = `URL corrections made:\n${suggestions.join('\n')}\n\nProceed with corrected URL?`;
+    if (suggestions.length > 0) {
+      const confirmMessage = `URL corrections made:\n${suggestions.join('\n')}\n\nProceed with corrected URL?`;
       if (!confirm(confirmMessage)) {
         return;
       }
@@ -506,7 +502,7 @@ const TGNApp = () => {
 
   const deleteUrl = (id) => {
     setUrls(urls.filter(url => url.id !== id));
-  };
+    });
 
   // Bulk import
   const handleBulkImport = () => {
