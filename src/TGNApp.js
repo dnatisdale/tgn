@@ -24,9 +24,6 @@ const TGNApp = () => {
   const [expandedCategories, setExpandedCategories] = useState(new Set());
   const [installPrompt, setInstallPrompt] = useState(null);
   const [showInstallButton, setShowInstallButton] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [confirmMessage, setConfirmMessage] = useState('');
-  const [onConfirmAction, setOnConfirmAction] = useState(() => () => {});
   const [selectedUrls, setSelectedUrls] = useState(new Set());
   const [showBulkActions, setShowBulkActions] = useState(false);
   
@@ -365,12 +362,10 @@ const TGNApp = () => {
     if (selectedUrls.size === 0) return;
     
     const confirmMessage = `Delete ${selectedUrls.size} selected URLs? This cannot be undone.`;
-    setConfirmMessage(confirmMessage);
-    setOnConfirmAction(() => () => {
+    if (confirm(confirmMessage)) {
       setUrls(urls.filter(url => !selectedUrls.has(url.id)));
       setSelectedUrls(new Set());
-    });
-    setShowConfirm(true);
+    }
   };
 
   const bulkCheckSelected = async () => {
@@ -474,16 +469,10 @@ const TGNApp = () => {
     
     // Show suggestions if any corrections were made
     if (suggestions.length > 0) {
-      
-    const addAndCheck = () => {
-      // Placeholder for actual logic
-      console.log("addAndCheck was called but not yet implemented.");
-    };
-    
-setConfirmMessage(`URL corrections made:\n${suggestions.join('\n')}\n\nProceed with corrected URL?`);
-      setOnConfirmAction(() => addAndCheck);
-      setShowConfirm(true);
-      return;
+      const confirmMessage = `URL corrections made:\n${suggestions.join('\n')}\n\nProceed with corrected URL?`;
+      if (!confirm(confirmMessage)) {
+        return;
+      }
     }
     
     const url = {
@@ -609,10 +598,174 @@ setConfirmMessage(`URL corrections made:\n${suggestions.join('\n')}\n\nProceed w
     URL.revokeObjectURL(url);
   };
 
-  // Generate QR code (simple implementation)
+  // Generate QR code image for sharing
+  const generateQRCodeImage = async (url) => {
+    try {
+      // Create a canvas for the QR code image
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      // Set canvas size
+      canvas.width = 400;
+      canvas.height = 500;
+      
+      // Create rounded rectangle background
+      const drawRoundedRect = (x, y, width, height, radius) => {
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.lineTo(x + width - radius, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+        ctx.lineTo(x + width, y + height - radius);
+        ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+        ctx.lineTo(x + radius, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+        ctx.lineTo(x, y + radius);
+        ctx.quadraticCurveTo(x, y, x + radius, y);
+        ctx.closePath();
+      };
+      
+      // Draw white background with rounded corners
+      ctx.fillStyle = '#ffffff';
+      drawRoundedRect(10, 10, 380, 480, 20);
+      ctx.fill();
+      
+      // Draw border
+      ctx.strokeStyle = '#e5e7eb';
+      ctx.lineWidth = 2;
+      drawRoundedRect(10, 10, 380, 480, 20);
+      ctx.stroke();
+      
+      // Draw title
+      ctx.fillStyle = '#1f2937';
+      ctx.font = 'bold 18px Arial, sans-serif';
+      ctx.textAlign = 'center';
+      const title = url.title.length > 40 ? url.title.substring(0, 37) + '...' : url.title;
+      ctx.fillText(title, 200, 50);
+      
+      // Load and draw QR code
+      const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url.url)}&format=png&margin=10`;
+      
+      return new Promise((resolve, reject) => {
+        const qrImage = new Image();
+        qrImage.crossOrigin = 'anonymous';
+        
+        qrImage.onload = () => {
+          // Draw QR code centered
+          ctx.drawImage(qrImage, 100, 80, 200, 200);
+          
+          // Draw URL text (split into multiple lines if needed)
+          ctx.fillStyle = '#4b5563';
+          ctx.font = '14px Arial, sans-serif';
+          ctx.textAlign = 'center';
+          
+          const urlText = url.url;
+          const maxWidth = 360;
+          const lineHeight = 20;
+          let y = 320;
+          
+          // Split long URLs into multiple lines
+          if (ctx.measureText(urlText).width > maxWidth) {
+            const words = urlText.split('/');
+            let line = '';
+            
+            for (let i = 0; i < words.length; i++) {
+              const testLine = line + words[i] + (i < words.length - 1 ? '/' : '');
+              if (ctx.measureText(testLine).width > maxWidth && line !== '') {
+                ctx.fillText(line, 200, y);
+                y += lineHeight;
+                line = words[i] + (i < words.length - 1 ? '/' : '');
+              } else {
+                line = testLine;
+              }
+            }
+            ctx.fillText(line, 200, y);
+          } else {
+            ctx.fillText(urlText, 200, y);
+          }
+          
+          // Draw category/subcategory info
+          if (url.category || url.subcategory) {
+            ctx.fillStyle = '#6b7280';
+            ctx.font = '12px Arial, sans-serif';
+            let categoryText = '';
+            
+            if (url.category) {
+              const categoryName = categories.find(c => c.id === url.category)?.name || url.category;
+              categoryText = categoryName;
+              
+              if (url.subcategory) {
+                const subcategoryName = categories.find(c => c.id === url.category)?.subcategories.find(s => s.id === url.subcategory)?.name || url.subcategory;
+                categoryText += ` > ${subcategoryName}`;
+              }
+            }
+            
+            ctx.fillText(categoryText, 200, y + 40);
+          }
+          
+          // Draw app name at bottom
+          ctx.fillStyle = '#9ca3af';
+          ctx.font = '12px Arial, sans-serif';
+          ctx.fillText(t[language].title, 200, 470);
+          
+          // Convert to blob and share
+          canvas.toBlob((blob) => {
+            if (blob) {
+              shareQRCodeImage(blob, url);
+              resolve(blob);
+            } else {
+              reject(new Error('Failed to create image'));
+            }
+          }, 'image/png');
+        };
+        
+        qrImage.onerror = () => {
+          reject(new Error('Failed to load QR code'));
+        };
+        
+        qrImage.src = qrCodeUrl;
+      });
+      
+    } catch (error) {
+      console.error('Error generating QR code image:', error);
+      alert('Failed to generate QR code image');
+    }
+  };
+
+  // Share QR code image
+  const shareQRCodeImage = async (blob, url) => {
+    try {
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [new File([blob], 'qr-code.png', { type: 'image/png' })] })) {
+        // Use native sharing with image file
+        const file = new File([blob], `${url.title.replace(/[^a-zA-Z0-9]/g, '_')}_QR.png`, { type: 'image/png' });
+        await navigator.share({
+          title: url.title,
+          text: `Gospel Resource: ${url.title}`,
+          files: [file]
+        });
+      } else {
+        // Fallback: download the image
+        const downloadUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = `${url.title.replace(/[^a-zA-Z0-9]/g, '_')}_QR.png`;
+        a.click();
+        URL.revokeObjectURL(downloadUrl);
+      }
+    } catch (error) {
+      console.error('Error sharing QR code:', error);
+      // Fallback: download the image
+      const downloadUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = `${url.title.replace(/[^a-zA-Z0-9]/g, '_')}_QR.png`;
+      a.click();
+      URL.revokeObjectURL(downloadUrl);
+    }
+  };
+
+  // Updated QR code generation function
   const generateQRCode = (url) => {
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`;
-    window.open(qrUrl, '_blank');
+    generateQRCodeImage(url);
   };
 
   // Share functionality
@@ -725,6 +878,82 @@ setConfirmMessage(`URL corrections made:\n${suggestions.join('\n')}\n\nProceed w
           </button>
         </div>
 
+        {/* Selection Controls */}
+        <div className="flex flex-wrap items-center gap-2 mb-4 p-3 bg-gray-100 rounded-lg">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={selectAll}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm flex items-center gap-1"
+            >
+              <Check size={14} />
+              {t[language].selectAll}
+            </button>
+            <button
+              onClick={selectNone}
+              className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm flex items-center gap-1"
+            >
+              <X size={14} />
+              {t[language].selectNone}
+            </button>
+            
+            {/* Select by Category dropdown */}
+            <div className="relative">
+              <select
+                onChange={(e) => {
+                  if (e.target.value) {
+                    const [categoryId, subcategoryId] = e.target.value.split('|');
+                    selectByCategory(categoryId, subcategoryId || null);
+                    e.target.value = ''; // Reset dropdown
+                  }
+                }}
+                className="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1 rounded text-sm"
+              >
+                <option value="">{t[language].selectCategory}</option>
+                {categories.map(category => (
+                  <optgroup key={category.id} label={category.name}>
+                    <option value={category.id}>All {category.name}</option>
+                    {category.subcategories.map(sub => (
+                      <option key={sub.id} value={`${category.id}|${sub.id}`}>
+                        {sub.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Selected count and bulk actions */}
+          {selectedUrls.size > 0 && (
+            <div className="flex items-center gap-2 ml-auto">
+              <span className="text-sm font-medium text-gray-700">
+                {selectedUrls.size} {t[language].selectedCount}
+              </span>
+              <button
+                onClick={bulkCheckSelected}
+                className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded text-sm flex items-center gap-1"
+              >
+                <RefreshCw size={14} />
+                {t[language].checkSelected}
+              </button>
+              <button
+                onClick={bulkExportSelected}
+                className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm flex items-center gap-1"
+              >
+                <Download size={14} />
+                {t[language].exportSelected}
+              </button>
+              <button
+                onClick={bulkDeleteSelected}
+                className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm flex items-center gap-1"
+              >
+                <Trash2 size={14} />
+                {t[language].deleteSelected}
+              </button>
+            </div>
+          )}
+        </div>
+
         {/* Search and Filters */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="relative">
@@ -772,7 +1001,15 @@ setConfirmMessage(`URL corrections made:\n${suggestions.join('\n')}\n\nProceed w
         <div className="grid gap-4">
           {filteredUrls.map(url => (
             <div key={url.id} className="bg-white p-4 rounded-lg shadow-sm border">
-              <div className="flex items-start justify-between">
+              <div className="flex items-start gap-3">
+                {/* Checkbox */}
+                <input
+                  type="checkbox"
+                  checked={selectedUrls.has(url.id)}
+                  onChange={() => toggleUrlSelection(url.id)}
+                  className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                
                 <div className="flex-1">
                   <h3 className="font-semibold text-lg">{url.title}</h3>
                   <a
@@ -1053,32 +1290,6 @@ setConfirmMessage(`URL corrections made:\n${suggestions.join('\n')}\n\nProceed w
           </div>
         </div>
       )}
-    
-      {showConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded shadow max-w-md w-full">
-            <p className="mb-4 whitespace-pre-line">{confirmMessage}</p>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => {
-                  setShowConfirm(false);
-                  onConfirmAction();
-                }}
-                className="bg-blue-600 text-white px-4 py-2 rounded"
-              >
-                Yes
-              </button>
-              <button
-                onClick={() => setShowConfirm(false)}
-                className="bg-gray-300 text-gray-700 px-4 py-2 rounded"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 };
