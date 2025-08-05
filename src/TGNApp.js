@@ -24,9 +24,14 @@ const TGNApp = () => {
   const [selectedUrls, setSelectedUrls] = useState(new Set());
   const [editingCategory, setEditingCategory] = useState(null);
   const [editingCategoryData, setEditingCategoryData] = useState({ name: '', subcategories: [] });
+  const [showQRPopup, setShowQRPopup] = useState(false);
+  const [currentQRUrl, setCurrentQRUrl] = useState(null);
+  const [qrImageBlob, setQrImageBlob] = useState(null);
+  const [showSharePreview, setShowSharePreview] = useState(false);
+  const [sharePreviewUrl, setSharePreviewUrl] = useState(null);
   
   // Form state
-  const [newUrl, setNewUrl] = useState({ title: '', url: '', category: '', subcategory: '', notes: '' });
+  const [newUrl, setNewUrl] = useState({ title: '', url: '', category: '', subcategory: '', subSubcategory: '', notes: '' });
   const [newCategory, setNewCategory] = useState({ name: '', subcategories: [''] });
   const [bulkImportText, setBulkImportText] = useState('');
 
@@ -55,6 +60,7 @@ const TGNApp = () => {
       url_label: 'URL',
       category_label: 'Category',
       subcategory_label: 'Subcategory',
+      subSubcategory_label: 'Sub-Subcategory',
       notes_label: 'Notes',
       save: 'Save',
       cancel: 'Cancel',
@@ -104,6 +110,7 @@ const TGNApp = () => {
       url_label: 'URL',
       category_label: 'หมวดหมู่',
       subcategory_label: 'หมวดหมู่ย่อย',
+      subSubcategory_label: 'หมวดหมู่ย่อยย่อย',
       notes_label: 'หมายเหตุ',
       save: 'บันทึก',
       cancel: 'ยกเลิก',
@@ -132,45 +139,67 @@ const TGNApp = () => {
     }
   };
 
-  // Default categories with two-tier structure
+  // Default categories - Thailand only with sub-subcategories
   const defaultCategories = [
     {
       id: 'thailand',
       name: 'Thailand',
       subcategories: [
-        { id: 'thai-central', name: 'Thai (Central)' },
-        { id: 'thai-northern', name: 'Thai (Northern)' },
-        { id: 'thai-southern', name: 'Thai (Southern)' },
-        { id: 'karen', name: 'Karen' },
-        { id: 'hmong', name: 'Hmong' }
-      ]
-    },
-    {
-      id: 'myanmar',
-      name: 'Myanmar',
-      subcategories: [
-        { id: 'burmese', name: 'Burmese' },
-        { id: 'shan', name: 'Shan' },
-        { id: 'karen-myanmar', name: 'Karen (Myanmar)' }
-      ]
-    },
-    {
-      id: 'laos',
-      name: 'Laos',
-      subcategories: [
-        { id: 'lao', name: 'Lao' },
-        { id: 'hmong-laos', name: 'Hmong (Laos)' }
-      ]
-    },
-    {
-      id: 'content-types',
-      name: 'Content Types',
-      subcategories: [
-        { id: 'bible', name: 'Bible' },
-        { id: 'songs', name: 'Songs' },
-        { id: 'testimonies', name: 'Testimonies' },
-        { id: 'videos', name: 'Videos' },
-        { id: 'audio', name: 'Audio Messages' }
+        { 
+          id: 'thai-central', 
+          name: 'Thai (Central)',
+          subSubcategories: [
+            { id: 'thai-central-bible', name: 'Bible' },
+            { id: 'thai-central-songs', name: 'Songs' },
+            { id: 'thai-central-testimonies', name: 'Testimonies' },
+            { id: 'thai-central-videos', name: 'Videos' },
+            { id: 'thai-central-audio', name: 'Audio Messages' }
+          ]
+        },
+        { 
+          id: 'thai-northern', 
+          name: 'Thai (Northern)',
+          subSubcategories: [
+            { id: 'thai-northern-bible', name: 'Bible' },
+            { id: 'thai-northern-songs', name: 'Songs' },
+            { id: 'thai-northern-testimonies', name: 'Testimonies' },
+            { id: 'thai-northern-videos', name: 'Videos' },
+            { id: 'thai-northern-audio', name: 'Audio Messages' }
+          ]
+        },
+        { 
+          id: 'thai-southern', 
+          name: 'Thai (Southern)',
+          subSubcategories: [
+            { id: 'thai-southern-bible', name: 'Bible' },
+            { id: 'thai-southern-songs', name: 'Songs' },
+            { id: 'thai-southern-testimonies', name: 'Testimonies' },
+            { id: 'thai-southern-videos', name: 'Videos' },
+            { id: 'thai-southern-audio', name: 'Audio Messages' }
+          ]
+        },
+        { 
+          id: 'karen', 
+          name: 'Karen',
+          subSubcategories: [
+            { id: 'karen-bible', name: 'Bible' },
+            { id: 'karen-songs', name: 'Songs' },
+            { id: 'karen-testimonies', name: 'Testimonies' },
+            { id: 'karen-videos', name: 'Videos' },
+            { id: 'karen-audio', name: 'Audio Messages' }
+          ]
+        },
+        { 
+          id: 'hmong', 
+          name: 'Hmong',
+          subSubcategories: [
+            { id: 'hmong-bible', name: 'Bible' },
+            { id: 'hmong-songs', name: 'Songs' },
+            { id: 'hmong-testimonies', name: 'Testimonies' },
+            { id: 'hmong-videos', name: 'Videos' },
+            { id: 'hmong-audio', name: 'Audio Messages' }
+          ]
+        }
       ]
     }
   ];
@@ -485,9 +514,55 @@ const TGNApp = () => {
     }
   };
 
-  // Updated QR code generation function
-  const generateQRCode = (url) => {
-    generateQRCodeImage(url);
+  // Generate QR code with immediate popup
+  const generateQRCode = async (url) => {
+    setCurrentQRUrl(url);
+    setShowQRPopup(true);
+    
+    try {
+      const blob = await generateQRCodeImage(url);
+      setQrImageBlob(blob);
+    } catch (error) {
+      console.error('Error generating QR code:', error);
+      alert('Failed to generate QR code');
+      setShowQRPopup(false);
+    }
+  };
+
+  // Download QR code image
+  const downloadQRCode = () => {
+    if (qrImageBlob && currentQRUrl) {
+      const downloadUrl = URL.createObjectURL(qrImageBlob);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = `${currentQRUrl.title.replace(/[^a-zA-Z0-9]/g, '_')}_QR.png`;
+      a.click();
+      URL.revokeObjectURL(downloadUrl);
+    }
+  };
+
+  // Show share preview
+  const showSharePreviewHandler = (url) => {
+    setSharePreviewUrl(url);
+    setShowSharePreview(true);
+  };
+
+  // Actually share the URL
+  const performShare = async (url) => {
+    setShowSharePreview(false);
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: url.title,
+          text: url.notes || 'Gospel resource from Thai Good News',
+          url: url.url
+        });
+      } catch (error) {
+        copyToClipboard(url.url);
+      }
+    } else {
+      copyToClipboard(url.url);
+    }
   };
 
   // Handle PWA install
@@ -756,13 +831,14 @@ const TGNApp = () => {
       url: corrected,
       category: newUrl.category,
       subcategory: newUrl.subcategory,
+      subSubcategory: newUrl.subSubcategory,
       notes: newUrl.notes,
       dateAdded: new Date().toISOString(),
       status: 'checking'
     };
     
     setUrls([...urls, url]);
-    setNewUrl({ title: '', url: '', category: '', subcategory: '', notes: '' });
+    setNewUrl({ title: '', url: '', category: '', subcategory: '', subSubcategory: '', notes: '' });
     setShowAddForm(false);
     
     // Check URL status immediately after adding
@@ -910,6 +986,14 @@ const TGNApp = () => {
     if (selectedCategory === 'all') return [];
     const category = categories.find(cat => cat.id === selectedCategory);
     return category ? category.subcategories : [];
+  };
+
+  // Get sub-subcategories for selected subcategory
+  const getSubSubcategories = () => {
+    if (selectedCategory === 'all' || selectedSubcategory === 'all') return [];
+    const category = categories.find(cat => cat.id === selectedCategory);
+    const subcategory = category?.subcategories.find(sub => sub.id === selectedSubcategory);
+    return subcategory ? subcategory.subSubcategories || [] : [];
   };
 
   return (
@@ -1156,7 +1240,7 @@ const TGNApp = () => {
                     <QrCode size={16} />
                   </button>
                   <button
-                    onClick={() => shareUrl(url)}
+                    onClick={() => showSharePreviewHandler(url)}
                     className="p-2 text-gray-600 hover:text-green-600"
                     title={t[language].share}
                   >
@@ -1214,12 +1298,24 @@ const TGNApp = () => {
               {newUrl.category && (
                 <select
                   value={newUrl.subcategory}
-                  onChange={(e) => setNewUrl({...newUrl, subcategory: e.target.value})}
+                  onChange={(e) => setNewUrl({...newUrl, subcategory: e.target.value, subSubcategory: ''})}
                   className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">{t[language].subcategory_label}</option>
                   {categories.find(c => c.id === newUrl.category)?.subcategories.map(sub => (
                     <option key={sub.id} value={sub.id}>{sub.name}</option>
+                  ))}
+                </select>
+              )}
+              {newUrl.subcategory && (
+                <select
+                  value={newUrl.subSubcategory}
+                  onChange={(e) => setNewUrl({...newUrl, subSubcategory: e.target.value})}
+                  className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">{t[language].subSubcategory_label}</option>
+                  {categories.find(c => c.id === newUrl.category)?.subcategories.find(s => s.id === newUrl.subcategory)?.subSubcategories?.map(subSub => (
+                    <option key={subSub.id} value={subSub.id}>{subSub.name}</option>
                   ))}
                 </select>
               )}
@@ -1453,6 +1549,96 @@ const TGNApp = () => {
                 className="flex-1 bg-gray-300 text-gray-700 py-2 rounded hover:bg-gray-400"
               >
                 {t[language].cancel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* QR Code Popup */}
+      {showQRPopup && currentQRUrl && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md text-center">
+            <h2 className="text-xl font-bold mb-4">QR Code for {currentQRUrl.title}</h2>
+            
+            {qrImageBlob ? (
+              <div className="space-y-4">
+                <img 
+                  src={URL.createObjectURL(qrImageBlob)} 
+                  alt="QR Code" 
+                  className="mx-auto rounded-lg shadow-md"
+                  style={{maxWidth: '300px', height: 'auto'}}
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={downloadQRCode}
+                    className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 flex items-center justify-center gap-2"
+                  >
+                    <Download size={16} />
+                    Download PNG
+                  </button>
+                  <button
+                    onClick={() => setShowQRPopup(false)}
+                    className="flex-1 bg-gray-300 text-gray-700 py-2 rounded hover:bg-gray-400"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="py-8">
+                <div className="loading-spinner mx-auto mb-4"></div>
+                <p>Generating QR code...</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Share Preview Popup */}
+      {showSharePreview && sharePreviewUrl && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4">Share Preview</h2>
+            
+            <div className="border rounded-lg p-4 mb-4 bg-gray-50">
+              <h3 className="font-semibold text-lg mb-2">{sharePreviewUrl.title}</h3>
+              <p className="text-blue-600 text-sm mb-2 break-all">{sharePreviewUrl.url}</p>
+              {sharePreviewUrl.notes && (
+                <p className="text-gray-600 text-sm mb-2">{sharePreviewUrl.notes}</p>
+              )}
+              <div className="flex flex-wrap gap-2 text-xs">
+                {sharePreviewUrl.category && (
+                  <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                    {categories.find(c => c.id === sharePreviewUrl.category)?.name}
+                  </span>
+                )}
+                {sharePreviewUrl.subcategory && (
+                  <span className="bg-green-100 text-green-800 px-2 py-1 rounded">
+                    {categories.find(c => c.id === sharePreviewUrl.category)?.subcategories.find(s => s.id === sharePreviewUrl.subcategory)?.name}
+                  </span>
+                )}
+                {sharePreviewUrl.subSubcategory && (
+                  <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded">
+                    {categories.find(c => c.id === sharePreviewUrl.category)?.subcategories.find(s => s.id === sharePreviewUrl.subcategory)?.subSubcategories?.find(ss => ss.id === sharePreviewUrl.subSubcategory)?.name}
+                  </span>
+                )}
+              </div>
+            </div>
+            
+            <div className="flex gap-2">
+              <button
+                onClick={() => performShare(sharePreviewUrl)}
+                className="flex-1 bg-green-600 text-white py-2 rounded hover:bg-green-700 flex items-center justify-center gap-2"
+              >
+                <Share2 size={16} />
+                Share Now
+              </button>
+              <button
+                onClick={() => setShowSharePreview(false)}
+                className="flex-1 bg-gray-300 text-gray-700 py-2 rounded hover:bg-gray-400"
+              >
+                Cancel
               </button>
             </div>
           </div>
