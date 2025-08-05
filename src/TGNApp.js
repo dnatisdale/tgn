@@ -474,7 +474,13 @@ const TGNApp = () => {
     
     // Show suggestions if any corrections were made
     if (suggestions.length > 0) {
-      setConfirmMessage(`URL corrections made:\n${suggestions.join('\n')}\n\nProceed with corrected URL?`);
+      
+    const addAndCheck = () => {
+      // Placeholder for actual logic
+      console.log("addAndCheck was called but not yet implemented.");
+    };
+    
+setConfirmMessage(`URL corrections made:\n${suggestions.join('\n')}\n\nProceed with corrected URL?`);
       setOnConfirmAction(() => addAndCheck);
       setShowConfirm(true);
       return;
