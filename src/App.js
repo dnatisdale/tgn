@@ -1,5 +1,5 @@
 import React from 'react';
-import TGNApp ffrom './TGNApp';
+import TGNApp from './TGNApp';
 import './App.css';
 
 function App() {
