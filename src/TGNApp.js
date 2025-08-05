@@ -187,7 +187,7 @@ const TGNApp = () => {
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-  }, []); // Remove defaultCategories from dependencies since it's a constant
+  }, []);
 
   // Save data
   useEffect(() => {
@@ -296,7 +296,7 @@ const TGNApp = () => {
         };
         
         // Extract domain for basic connectivity test
-        const domain = url.match(/https?:\/\/([^\/]+)/)?.[1];
+        const domain = url.match(/https?:\/\/([^/]+)/)?.[1];
         if (domain) {
           img.src = `https://${domain}/favicon.ico?t=${Date.now()}`;
         } else {
@@ -306,285 +306,6 @@ const TGNApp = () => {
     } catch {
       return 'unknown';
     }
-  };
-
-  // Handle PWA install
-  const handleInstall = async () => {
-    if (installPrompt) {
-      installPrompt.prompt();
-      const { outcome } = await installPrompt.userChoice;
-      if (outcome === 'accepted') {
-        setShowInstallButton(false);
-      }
-      setInstallPrompt(null);
-    }
-  };
-
-  // Selection management
-  const toggleUrlSelection = (urlId) => {
-    const newSelected = new Set(selectedUrls);
-    if (newSelected.has(urlId)) {
-      newSelected.delete(urlId);
-    } else {
-      newSelected.add(urlId);
-    }
-    setSelectedUrls(newSelected);
-  };
-
-  const selectAll = () => {
-    setSelectedUrls(new Set(filteredUrls.map(url => url.id)));
-  };
-
-  const selectNone = () => {
-    setSelectedUrls(new Set());
-  };
-
-  const selectByCategory = (categoryId, subcategoryId = null) => {
-    const urlsInCategory = filteredUrls.filter(url => {
-      if (subcategoryId) {
-        return url.category === categoryId && url.subcategory === subcategoryId;
-      }
-      return url.category === categoryId;
-    });
-    
-    const newSelected = new Set(selectedUrls);
-    urlsInCategory.forEach(url => newSelected.add(url.id));
-    setSelectedUrls(newSelected);
-  };
-
-  // Bulk actions
-  const bulkDeleteSelected = () => {
-    if (selectedUrls.size === 0) return;
-    
-    const confirmMessage = `Delete ${selectedUrls.size} selected URLs? This cannot be undone.`;
-    if (confirm(confirmMessage)) {
-      setUrls(urls.filter(url => !selectedUrls.has(url.id)));
-      setSelectedUrls(new Set());
-    }
-  };
-
-  const bulkCheckSelected = async () => {
-    if (selectedUrls.size === 0) return;
-    
-    const selectedUrlObjects = urls.filter(url => selectedUrls.has(url.id));
-    
-    for (const url of selectedUrlObjects) {
-      // Update status to checking
-      setUrls(prevUrls => 
-        prevUrls.map(u => 
-          u.id === url.id ? { ...u, status: 'checking' } : u
-        )
-      );
-      
-      const status = await checkUrlStatus(url.url);
-      setUrls(prevUrls => 
-        prevUrls.map(u => 
-          u.id === url.id ? { ...u, status } : u
-        )
-      );
-    }
-  };
-
-  const bulkExportSelected = () => {
-    if (selectedUrls.size === 0) return;
-    
-    const selectedUrlObjects = urls.filter(url => selectedUrls.has(url.id));
-    const data = { 
-      urls: selectedUrlObjects, 
-      categories,
-      exported: new Date().toISOString(),
-      count: selectedUrlObjects.length
-    };
-    
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `tgn-selected-${selectedUrls.size}-urls-${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-  const addCategory = () => {
-    if (!newCategory.name.trim()) return;
-    
-    const category = {
-      id: Date.now().toString(),
-      name: newCategory.name,
-      subcategories: newCategory.subcategories
-        .filter(sub => sub.trim())
-        .map(sub => ({
-          id: Date.now().toString() + Math.random(),
-          name: sub.trim()
-        }))
-    };
-    
-    setCategories([...categories, category]);
-    setNewCategory({ name: '', subcategories: [''] });
-  };
-
-  const deleteCategory = (categoryId) => {
-    setCategories(categories.filter(cat => cat.id !== categoryId));
-    // Also remove any URLs in this category
-    setUrls(urls.filter(url => url.category !== categoryId));
-  };
-
-  const moveCategoryUp = (index) => {
-    if (index === 0) return;
-    const newCategories = [...categories];
-    [newCategories[index - 1], newCategories[index]] = [newCategories[index], newCategories[index - 1]];
-    setCategories(newCategories);
-  };
-
-  const moveCategoryDown = (index) => {
-    if (index === categories.length - 1) return;
-    const newCategories = [...categories];
-    [newCategories[index], newCategories[index + 1]] = [newCategories[index + 1], newCategories[index]];
-    setCategories(newCategories);
-  };
-
-  // URL management
-  const addUrl = () => {
-    const { corrected, isValid, suggestions } = validateAndCorrectUrl(newUrl.url);
-    
-    if (!newUrl.title.trim()) {
-      alert('Please enter a title');
-      return;
-    }
-    
-    if (!isValid) {
-      alert('Please enter a valid URL');
-      return;
-    }
-    
-    // Show suggestions if any corrections were made
-    if (suggestions.length > 0) {
-      const confirmMessage = `URL corrections made:\n${suggestions.join('\n')}\n\nProceed with corrected URL?`;
-      if (!confirm(confirmMessage)) {
-        return;
-      }
-    }
-    
-    const url = {
-      id: Date.now().toString(),
-      title: newUrl.title,
-      url: corrected,
-      category: newUrl.category,
-      subcategory: newUrl.subcategory,
-      notes: newUrl.notes,
-      dateAdded: new Date().toISOString(),
-      status: 'checking'
-    };
-    
-    setUrls([...urls, url]);
-    setNewUrl({ title: '', url: '', category: '', subcategory: '', notes: '' });
-    setShowAddForm(false);
-    
-    // Check URL status immediately after adding
-    checkUrlStatus(corrected).then(status => {
-      setUrls(prevUrls => 
-        prevUrls.map(u => 
-          u.id === url.id ? { ...u, status } : u
-        )
-      );
-    });
-  };
-
-  const deleteUrl = (id) => {
-    setUrls(urls.filter(url => url.id !== id));
-  };
-
-  // Bulk import
-  const handleBulkImport = () => {
-    const lines = bulkImportText.split('\n').filter(line => line.trim());
-    const newUrls = [];
-    const invalidUrls = [];
-    const corrections = [];
-    
-    lines.forEach(line => {
-      const { corrected, isValid, suggestions } = validateAndCorrectUrl(line.trim());
-      if (isValid) {
-        const url = {
-          id: Date.now().toString() + Math.random(),
-          title: corrected.replace(/^https?:\/\//, '').split('/')[0],
-          url: corrected,
-          category: '',
-          subcategory: '',
-          notes: 'Bulk imported',
-          dateAdded: new Date().toISOString(),
-          status: 'checking'
-        };
-        newUrls.push(url);
-        if (suggestions.length > 0) {
-          corrections.push(...suggestions);
-        }
-      } else {
-        invalidUrls.push(line.trim());
-      }
-    });
-    
-    // Show import summary
-    let message = `Import Summary:\n✅ Valid URLs: ${newUrls.length}\n❌ Invalid URLs: ${invalidUrls.length}`;
-    
-    if (corrections.length > 0) {
-      message += `\n\n🔧 Auto-corrections made:\n${corrections.join('\n')}`;
-    }
-    
-    if (invalidUrls.length > 0) {
-      message += `\n\n❌ Invalid URLs (not imported):\n${invalidUrls.slice(0, 5).join('\n')}`;
-      if (invalidUrls.length > 5) {
-        message += `\n... and ${invalidUrls.length - 5} more`;
-      }
-    }
-    
-    alert(message);
-    
-    if (newUrls.length > 0) {
-      setUrls([...urls, ...newUrls]);
-      
-      // Check URL status for all imported URLs
-      newUrls.forEach(async (url) => {
-        const status = await checkUrlStatus(url.url);
-        setUrls(prevUrls => 
-          prevUrls.map(u => 
-            u.id === url.id ? { ...u, status } : u
-          )
-        );
-      });
-    }
-    
-    setBulkImportText('');
-    setShowImportDialog(false);
-  };
-
-  // Check all URLs
-  const checkAllUrls = async () => {
-    setUrlCheckResults([]);
-    const results = [];
-    
-    for (const url of urls) {
-      const status = await checkUrlStatus(url.url);
-      results.push({ id: url.id, status });
-      setUrlCheckResults([...results]);
-      
-      // Update URL status
-      setUrls(prevUrls => 
-        prevUrls.map(u => 
-          u.id === url.id ? { ...u, status } : u
-        )
-      );
-    }
-  };
-
-  // Export/Import
-  const exportData = () => {
-    const data = { urls, categories, version: '2.0' };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `tgn-backup-${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
   };
 
   // Generate QR code image for sharing
@@ -755,6 +476,286 @@ const TGNApp = () => {
   // Updated QR code generation function
   const generateQRCode = (url) => {
     generateQRCodeImage(url);
+  };
+
+  // Handle PWA install
+  const handleInstall = async () => {
+    if (installPrompt) {
+      installPrompt.prompt();
+      const { outcome } = await installPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setShowInstallButton(false);
+      }
+      setInstallPrompt(null);
+    }
+  };
+
+  // Selection management
+  const toggleUrlSelection = (urlId) => {
+    const newSelected = new Set(selectedUrls);
+    if (newSelected.has(urlId)) {
+      newSelected.delete(urlId);
+    } else {
+      newSelected.add(urlId);
+    }
+    setSelectedUrls(newSelected);
+  };
+
+  const selectAll = () => {
+    setSelectedUrls(new Set(filteredUrls.map(url => url.id)));
+  };
+
+  const selectNone = () => {
+    setSelectedUrls(new Set());
+  };
+
+  const selectByCategory = (categoryId, subcategoryId = null) => {
+    const urlsInCategory = filteredUrls.filter(url => {
+      if (subcategoryId) {
+        return url.category === categoryId && url.subcategory === subcategoryId;
+      }
+      return url.category === categoryId;
+    });
+    
+    const newSelected = new Set(selectedUrls);
+    urlsInCategory.forEach(url => newSelected.add(url.id));
+    setSelectedUrls(newSelected);
+  };
+
+  // Bulk actions
+  const bulkDeleteSelected = () => {
+    if (selectedUrls.size === 0) return;
+    
+    const confirmMessage = `Delete ${selectedUrls.size} selected URLs? This cannot be undone.`;
+    // ESLint-compliant way to use confirm
+    // eslint-disable-next-line no-restricted-globals
+    if (confirm(confirmMessage)) {
+      setUrls(urls.filter(url => !selectedUrls.has(url.id)));
+      setSelectedUrls(new Set());
+    }
+  };
+
+  const bulkCheckSelected = async () => {
+    if (selectedUrls.size === 0) return;
+    
+    const selectedUrlObjects = urls.filter(url => selectedUrls.has(url.id));
+    
+    for (const url of selectedUrlObjects) {
+      // Update status to checking
+      setUrls(prevUrls => 
+        prevUrls.map(u => 
+          u.id === url.id ? { ...u, status: 'checking' } : u
+        )
+      );
+      
+      const status = await checkUrlStatus(url.url);
+      setUrls(prevUrls => 
+        prevUrls.map(u => 
+          u.id === url.id ? { ...u, status } : u
+        )
+      );
+    }
+  };
+
+  const bulkExportSelected = () => {
+    if (selectedUrls.size === 0) return;
+    
+    const selectedUrlObjects = urls.filter(url => selectedUrls.has(url.id));
+    const data = { 
+      urls: selectedUrlObjects, 
+      categories,
+      exported: new Date().toISOString(),
+      count: selectedUrlObjects.length
+    };
+    
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tgn-selected-${selectedUrls.size}-urls-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Category management
+  const addCategory = () => {
+    if (!newCategory.name.trim()) return;
+    
+    const category = {
+      id: Date.now().toString(),
+      name: newCategory.name,
+      subcategories: newCategory.subcategories
+        .filter(sub => sub.trim())
+        .map(sub => ({
+          id: Date.now().toString() + Math.random(),
+          name: sub.trim()
+        }))
+    };
+    
+    setCategories([...categories, category]);
+    setNewCategory({ name: '', subcategories: [''] });
+  };
+
+  const deleteCategory = (categoryId) => {
+    setCategories(categories.filter(cat => cat.id !== categoryId));
+    // Also remove any URLs in this category
+    setUrls(urls.filter(url => url.category !== categoryId));
+  };
+
+  const moveCategoryUp = (index) => {
+    if (index === 0) return;
+    const newCategories = [...categories];
+    [newCategories[index - 1], newCategories[index]] = [newCategories[index], newCategories[index - 1]];
+    setCategories(newCategories);
+  };
+
+  const moveCategoryDown = (index) => {
+    if (index === categories.length - 1) return;
+    const newCategories = [...categories];
+    [newCategories[index], newCategories[index + 1]] = [newCategories[index + 1], newCategories[index]];
+    setCategories(newCategories);
+  };
+
+  // URL management
+  const addUrl = () => {
+    const { corrected, isValid, suggestions } = validateAndCorrectUrl(newUrl.url);
+    
+    if (!newUrl.title.trim()) {
+      alert('Please enter a title');
+      return;
+    }
+    
+    if (!isValid) {
+      alert('Please enter a valid URL');
+      return;
+    }
+    
+    // Show suggestions if any corrections were made
+    if (suggestions.length > 0) {
+      const confirmMessage = `URL corrections made:\n${suggestions.join('\n')}\n\nProceed with corrected URL?`;
+      // ESLint-compliant way to use confirm
+      // eslint-disable-next-line no-restricted-globals
+      if (!confirm(confirmMessage)) {
+        return;
+      }
+    }
+    
+    const url = {
+      id: Date.now().toString(),
+      title: newUrl.title,
+      url: corrected,
+      category: newUrl.category,
+      subcategory: newUrl.subcategory,
+      notes: newUrl.notes,
+      dateAdded: new Date().toISOString(),
+      status: 'checking'
+    };
+    
+    setUrls([...urls, url]);
+    setNewUrl({ title: '', url: '', category: '', subcategory: '', notes: '' });
+    setShowAddForm(false);
+    
+    // Check URL status immediately after adding
+    checkUrlStatus(corrected).then(status => {
+      setUrls(prevUrls => 
+        prevUrls.map(u => 
+          u.id === url.id ? { ...u, status } : u
+        )
+      );
+    });
+  };
+
+  const deleteUrl = (id) => {
+    setUrls(urls.filter(url => url.id !== id));
+  };
+
+  // Bulk import
+  const handleBulkImport = () => {
+    const lines = bulkImportText.split('\n').filter(line => line.trim());
+    const newUrls = [];
+    const invalidUrls = [];
+    const corrections = [];
+    
+    lines.forEach(line => {
+      const { corrected, isValid, suggestions } = validateAndCorrectUrl(line.trim());
+      if (isValid) {
+        const url = {
+          id: Date.now().toString() + Math.random(),
+          title: corrected.replace(/^https?:\/\//, '').split('/')[0],
+          url: corrected,
+          category: '',
+          subcategory: '',
+          notes: 'Bulk imported',
+          dateAdded: new Date().toISOString(),
+          status: 'checking'
+        };
+        newUrls.push(url);
+        if (suggestions.length > 0) {
+          corrections.push(...suggestions);
+        }
+      } else {
+        invalidUrls.push(line.trim());
+      }
+    });
+    
+    // Show import summary
+    let message = `Import Summary:\n✅ Valid URLs: ${newUrls.length}\n❌ Invalid URLs: ${invalidUrls.length}`;
+    
+    if (corrections.length > 0) {
+      message += `\n\n🔧 Auto-corrections made:\n${corrections.join('\n')}`;
+    }
+    
+    if (invalidUrls.length > 0) {
+      message += `\n\n❌ Invalid URLs (not imported):\n${invalidUrls.slice(0, 5).join('\n')}`;
+      if (invalidUrls.length > 5) {
+        message += `\n... and ${invalidUrls.length - 5} more`;
+      }
+    }
+    
+    alert(message);
+    
+    if (newUrls.length > 0) {
+      setUrls([...urls, ...newUrls]);
+      
+      // Check URL status for all imported URLs
+      newUrls.forEach(async (url) => {
+        const status = await checkUrlStatus(url.url);
+        setUrls(prevUrls => 
+          prevUrls.map(u => 
+            u.id === url.id ? { ...u, status } : u
+          )
+        );
+      });
+    }
+    
+    setBulkImportText('');
+    setShowImportDialog(false);
+  };
+
+  // Check all URLs
+  const checkAllUrls = async () => {
+    for (const url of urls) {
+      const status = await checkUrlStatus(url.url);
+      
+      // Update URL status
+      setUrls(prevUrls => 
+        prevUrls.map(u => 
+          u.id === url.id ? { ...u, status } : u
+        )
+      );
+    }
+  };
+
+  // Export/Import
+  const exportData = () => {
+    const data = { urls, categories, version: '2.0' };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tgn-backup-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   // Share functionality
@@ -1038,7 +1039,7 @@ const TGNApp = () => {
                 </div>
                 <div className="flex items-center gap-2 ml-4">
                   <button
-                    onClick={() => generateQRCode(url.url)}
+                    onClick={() => generateQRCode(url)}
                     className="p-2 text-gray-600 hover:text-blue-600"
                     title={t[language].qrCode}
                   >
@@ -1216,12 +1217,6 @@ const TGNApp = () => {
                         className="p-1 text-gray-600 hover:text-blue-600 disabled:opacity-50"
                       >
                         <ArrowDown size={14} />
-                      </button>
-                      <button
-                        onClick={() => setEditingCategory(category.id)}
-                        className="p-1 text-gray-600 hover:text-blue-600"
-                      >
-                        <Edit3 size={14} />
                       </button>
                       <button
                         onClick={() => deleteCategory(category.id)}
