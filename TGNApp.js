@@ -24,6 +24,9 @@ const TGNApp = () => {
   const [expandedCategories, setExpandedCategories] = useState(new Set());
   const [installPrompt, setInstallPrompt] = useState(null);
   const [showInstallButton, setShowInstallButton] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [confirmMessage, setConfirmMessage] = useState('');
+  const [onConfirmAction, setOnConfirmAction] = useState(() => () => {});
   
   // Form state
   const [newUrl, setNewUrl] = useState({ title: '', url: '', category: '', subcategory: '', notes: '' });
@@ -366,10 +369,10 @@ const TGNApp = () => {
     
     // Show suggestions if any corrections were made
     if (suggestions.length > 0) {
-      const confirmMessage = `URL corrections made:\n${suggestions.join('\n')}\n\nProceed with corrected URL?`;
-      if (!confirm(confirmMessage)) {
-        return;
-      }
+      setConfirmMessage(`URL corrections made:\n${suggestions.join('\n')}\n\nProceed with corrected URL?`;
+      setOnConfirmAction(() => addAndCheck);
+      setShowConfirm(true);
+      return;
     }
     
     const url = {
@@ -939,6 +942,32 @@ const TGNApp = () => {
           </div>
         </div>
       )}
+    
+      {showConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded shadow max-w-md w-full">
+            <p className="mb-4 whitespace-pre-line">{confirmMessage}</p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setShowConfirm(false);
+                  onConfirmAction();
+                }}
+                className="bg-blue-600 text-white px-4 py-2 rounded"
+              >
+                Yes
+              </button>
+              <button
+                onClick={() => setShowConfirm(false)}
+                className="bg-gray-300 text-gray-700 px-4 py-2 rounded"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
