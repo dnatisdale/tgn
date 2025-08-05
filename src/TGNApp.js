@@ -502,7 +502,7 @@ const TGNApp = () => {
 
   const deleteUrl = (id) => {
     setUrls(urls.filter(url => url.id !== id));
-    };
+  };
 
   // Bulk import
   const handleBulkImport = () => {
