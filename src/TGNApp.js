@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Plus, Search, QrCode, Share2, Download, Upload, 
-  Edit3, Trash2, Check, X, ChevronDown, ChevronRight,
-  Globe, Languages, Music, BookOpen, Video, Mic,
+  Edit3, Trash2, Check, X,
   ArrowUp, ArrowDown, Settings, ExternalLink,
-  RefreshCw, Database, Copy, AlertTriangle
+  RefreshCw
 } from 'lucide-react';
 
 const TGNApp = () => {
@@ -20,18 +19,14 @@ const TGNApp = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
-  const [editingCategory, setEditingCategory] = useState(null);
-  const [expandedCategories, setExpandedCategories] = useState(new Set());
   const [installPrompt, setInstallPrompt] = useState(null);
   const [showInstallButton, setShowInstallButton] = useState(false);
   const [selectedUrls, setSelectedUrls] = useState(new Set());
-  const [showBulkActions, setShowBulkActions] = useState(false);
   
   // Form state
   const [newUrl, setNewUrl] = useState({ title: '', url: '', category: '', subcategory: '', notes: '' });
   const [newCategory, setNewCategory] = useState({ name: '', subcategories: [''] });
   const [bulkImportText, setBulkImportText] = useState('');
-  const [urlCheckResults, setUrlCheckResults] = useState([]);
 
   // Translations
   const t = {
@@ -192,7 +187,7 @@ const TGNApp = () => {
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-  }, []);
+  }, []); // Remove defaultCategories from dependencies since it's a constant
 
   // Save data
   useEffect(() => {
@@ -242,7 +237,7 @@ const TGNApp = () => {
     }
     
     // Enhanced URL validation
-    const urlPattern = /^https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)$/;
+    const urlPattern = /^https?:\/\/(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&//=]*)$/;
     const isValid = urlPattern.test(corrected);
     
     return { corrected, isValid, suggestions };
@@ -362,7 +357,7 @@ const TGNApp = () => {
     if (selectedUrls.size === 0) return;
     
     const confirmMessage = `Delete ${selectedUrls.size} selected URLs? This cannot be undone.`;
-    if (window.confirm(confirmMessage)) {
+    if (confirm(confirmMessage)) {
       setUrls(urls.filter(url => !selectedUrls.has(url.id)));
       setSelectedUrls(new Set());
     }
@@ -427,12 +422,6 @@ const TGNApp = () => {
     setNewCategory({ name: '', subcategories: [''] });
   };
 
-  const updateCategory = (categoryId, updatedCategory) => {
-    setCategories(categories.map(cat => 
-      cat.id === categoryId ? updatedCategory : cat
-    ));
-  };
-
   const deleteCategory = (categoryId) => {
     setCategories(categories.filter(cat => cat.id !== categoryId));
     // Also remove any URLs in this category
@@ -470,7 +459,7 @@ const TGNApp = () => {
     // Show suggestions if any corrections were made
     if (suggestions.length > 0) {
       const confirmMessage = `URL corrections made:\n${suggestions.join('\n')}\n\nProceed with corrected URL?`;
-      if (!window.confirm(confirmMessage)) {
+      if (!confirm(confirmMessage)) {
         return;
       }
     }
