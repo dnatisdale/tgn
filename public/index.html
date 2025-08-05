@@ -1,186 +1,33 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#2563eb" />
-  <meta name="description" content="Thai Good News - Gospel Resource Manager for Thailand and Southeast Asia" />
-  
-  <!-- PWA Meta Tags -->
-  <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
-  <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
-  
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  
-  <!-- Custom CSS for enhanced features -->
-  <link rel="stylesheet" href="%PUBLIC_URL%/index.css" />
-  
-  <title>Thai Good News - TGN</title>
-  
-  <!-- SEO and Social Meta Tags -->
-  <meta property="og:title" content="Thai Good News - Gospel Resource Manager" />
-  <meta property="og:description" content="Manage and share gospel resources across Thailand and Southeast Asia" />
-  <meta property="og:type" content="website" />
-  <meta property="og:image" content="%PUBLIC_URL%/logo512.png" />
-  
-  <!-- Twitter Card -->
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Thai Good News - Gospel Resource Manager" />
-  <meta name="twitter:description" content="Manage and share gospel resources across Thailand and Southeast Asia" />
-  
-  <!-- Additional PWA optimizations -->
-  <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="TGN" />
-  
-  <!-- Preconnect to external services for better performance -->
-  <link rel="preconnect" href="https://api.qrserver.com" />
-  <link rel="preconnect" href="https://api.allorigins.win" />
-  
-  <style>
-    /* Custom Tailwind configuration for enhanced features */
-    @tailwind base;
-    @tailwind components;
-    @tailwind utilities;
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#3B82F6" />
+    <meta name="description" content="TGN - Thai Good News Gospel Resource Manager. Bilingual PWA for managing and sharing gospel resources in Thai and English." />
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
     
-    /* Smooth scrolling */
-    html {
-      scroll-behavior: smooth;
-    }
+    <!-- Tailwind CSS CDN - Latest version -->
+    <script src="https://cdn.tailwindcss.com"></script>
     
-    /* Loading states */
-    .loading {
-      opacity: 0.6;
-      pointer-events: none;
-    }
+    <!-- Thai Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
-    /* Selection highlight */
-    .selected-url {
-      background-color: #dbeafe !important;
-      border-color: #3b82f6 !important;
-    }
-    
-    /* Status indicators */
-    .status-working { @apply bg-green-100 text-green-800; }
-    .status-broken { @apply bg-red-100 text-red-800; }
-    .status-checking { @apply bg-blue-100 text-blue-800; }
-    .status-timeout { @apply bg-yellow-100 text-yellow-800; }
-    .status-invalid { @apply bg-red-100 text-red-800; }
-    .status-unknown { @apply bg-gray-100 text-gray-800; }
-    
-    /* Custom checkbox styling */
-    .custom-checkbox {
-      @apply w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2;
-    }
-    
-    /* Button hover effects */
-    .btn-primary {
-      @apply bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded transition-colors duration-200;
-    }
-    
-    .btn-secondary {
-      @apply bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded transition-colors duration-200;
-    }
-    
-    .btn-success {
-      @apply bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded transition-colors duration-200;
-    }
-    
-    .btn-danger {
-      @apply bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded transition-colors duration-200;
-    }
-    
-    /* Modal backdrop */
-    .modal-backdrop {
-      @apply fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50;
-    }
-    
-    /* Modal content */
-    .modal-content {
-      @apply bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto;
-    }
-    
-    /* Card styling */
-    .url-card {
-      @apply bg-white p-4 rounded-lg shadow-sm border hover:shadow-md transition-shadow duration-200;
-    }
-    
-    /* Category tags */
-    .category-tag {
-      @apply bg-gray-100 px-2 py-1 rounded text-xs font-medium;
-    }
-    
-    /* QR Code canvas styling */
-    .qr-canvas {
-      border-radius: 20px;
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    }
-    
-    /* Responsive adjustments */
-    @media (max-width: 640px) {
-      .modal-content {
-        @apply m-2 max-h-[95vh];
+    <!-- Apply Thai fonts globally -->
+    <style>
+      body {
+        font-family: 'Sarabun', 'Noto Sans Thai', sans-serif;
       }
-      
-      .url-card {
-        @apply p-3;
-      }
-    }
+    </style>
     
-    /* Print styles for QR codes */
-    @media print {
-      .no-print {
-        display: none !important;
-      }
-      
-      .qr-canvas {
-        break-inside: avoid;
-      }
-    }
-  </style>
-</head>
-<body>
-  <noscript>You need to enable JavaScript to run this app.</noscript>
-  <div id="root"></div>
-  
-  <!-- Service Worker Registration -->
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function() {
-        navigator.serviceWorker.register('%PUBLIC_URL%/sw.js')
-          .then(function(registration) {
-            console.log('SW registered: ', registration);
-          }, function(registrationError) {
-            console.log('SW registration failed: ', registrationError);
-          });
-      });
-    }
-    
-    // PWA Install Prompt Enhancement
-    let deferredPrompt;
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
-      // The app will handle showing the install button
-    });
-    
-    // App Install Success
-    window.addEventListener('appinstalled', (evt) => {
-      console.log('TGN PWA was installed');
-    });
-    
-    // Performance monitoring
-    window.addEventListener('load', function() {
-      if ('performance' in window) {
-        setTimeout(() => {
-          const perfData = performance.getEntriesByType('navigation')[0];
-          console.log('App loaded in:', perfData.loadEventEnd - perfData.fetchStart, 'ms');
-        }, 0);
-      }
-    });
-  </script>
-</body>
+    <title>TGN - Thai Good News</title>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+  </body>
 </html>
