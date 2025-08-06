@@ -103,7 +103,7 @@ body {
   color: var(--background-fg) !important;
 }
 
-/* Primary button */
+/* Button classes using theme variables */
 .btn-primary {
   background-color: var(--primary-actions-bg) !important;
   color:            var(--primary-actions-fg);
@@ -117,7 +117,6 @@ body {
   background-color: var(--primary-actions-bg-hover) !important;
 }
 
-/* Secondary button */
 .btn-secondary {
   background-color: var(--secondary-actions-bg) !important;
   color:            var(--secondary-actions-fg);
