@@ -1125,7 +1125,7 @@ const TGNApp = () => {
   return (
     <div className="min-h-screen bg-gray-50">
           {/* ─── Theme Picker ─────────────────────────────────────────────────────── */}
-    <div className="p-4 bg-white shadow-sm flex items-center justify-start">
+    <div className="p-4 shadow-sm flex items-center justify-start themed-bg-primary themed-fg-primary">
       <label className="font-medium mr-2">Theme:</label>
       <select
         value={theme}
@@ -1149,6 +1149,16 @@ const TGNApp = () => {
           </div>
         </div>
       )}
+
+      {/* Debug Controls */}
+      <div style={{ padding: '1rem' }}>
+        <button className="btn-primary">Test Primary</button>
+        <button className="btn-secondary" style={{ marginLeft: '0.5rem' }}>
+          Test Secondary
+        </button>
+      </div>
+    </div>
+  )}
 
       {/* Sign In Screen */}
       {!user && !isLoading && (
