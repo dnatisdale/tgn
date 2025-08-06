@@ -39,8 +39,8 @@ const TGNApp = () => {
   const t = {
     en: {
       title: 'Thai Good News',
-      addResource: 'Add Resource',
-      search: 'Search resources...',
+      addResource: 'Add URL',
+      search: 'Search URLs...',
       allCategories: 'All Categories',
       manageCategories: 'Manage Categories',
       importUrls: 'Import URLs',
