@@ -1150,14 +1150,6 @@ const TGNApp = () => {
     </div>
   )}
 
-  {/* Debug Controls */}
-  <div style={{ padding: '1rem' }}>
-    <button className="btn-primary">Test Primary</button>
-    <button className="btn-secondary" style={{ marginLeft: '0.5rem' }}>
-      Test Secondary
-    </button>
-  </div>
-
       {/* Sign In Screen */}
       {!user && !isLoading && (
         <div className="min-h-screen flex items-center justify-center p-4">

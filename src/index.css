@@ -81,28 +81,6 @@ body {
   font-family:      sans-serif;
 }
 
-/* Themed backgrounds & text */
-
-.themed-bg-primary {
-  background-color: var(--primary-actions-bg) !important;
-}
-.themed-bg-secondary {
-  background-color: var(--secondary-actions-bg) !important;
-}
-.themed-bg-base {
-  background-color: var(--background-bg) !important;
-}
-
-.themed-fg-primary {
-  color: var(--primary-actions-fg) !important;
-}
-.themed-fg-secondary {
-  color: var(--secondary-actions-fg) !important;
-}
-.themed-fg-base {
-  color: var(--background-fg) !important;
-}
-
 /* Button classes using theme variables */
 .btn-primary {
   background-color: var(--primary-actions-bg) !important;
