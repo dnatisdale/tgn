@@ -6,7 +6,25 @@ import {
   RefreshCw
 } from 'lucide-react';
 
+// ─── Theme support ──────────────────────────────────────────────────────────
+import './index.css';    // load theme CSS variables
+
+const themes = [
+  'corporate-elegance',
+  'lively-spectrum',
+  'green-earth',
+  'tech-fusion',
+  'pure-simplicity',
+];
+// ← next you will insert theme support here
+
 const TGNApp = () => {
+  // ─── Theme state & effect ─────────────────────────────────────────────────
+  const [theme, setTheme] = useState('corporate-elegance');
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
   // Core state
   const [language, setLanguage] = useState('en');
   const [urls, setUrls] = useState([]);
@@ -1106,6 +1124,22 @@ const TGNApp = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+          {/* ─── Theme Picker ─────────────────────────────────────────────────────── */}
+    <div className="p-4 bg-white shadow-sm flex items-center justify-start">
+      <label className="font-medium mr-2">Theme:</label>
+      <select
+        value={theme}
+        onChange={e => setTheme(e.target.value)}
+        className="border rounded p-1"
+      >
+        {themes.map(t => (
+          <option key={t} value={t}>
+            {t.replace(/-/g, ' ')}
+          </option>
+        ))}
+      </select>
+    </div>
+
       {/* Loading Screen */}
       {isLoading && (
         <div className="fixed inset-0 bg-white flex items-center justify-center z-50">

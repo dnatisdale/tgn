@@ -1,0 +1,110 @@
+/* src/index.css */
+
+/* 1) Default theme = corporate-elegance */
+:root {
+  /* Primary Actions */
+  --primary-actions-bg:           #0047AA;
+  --primary-actions-bg-hover:     #003070;
+  --primary-actions-fg:           #FFFFFF;
+
+  /* Background */
+  --background-bg:                #E4F7FF;
+  --background-fg:                #001D44;
+
+  /* Secondary Actions */
+  --secondary-actions-bg:         #BFD7EA;
+  --secondary-actions-bg-hover:   #A0C0E0;
+  --secondary-actions-fg:         #0A2E4E;
+}
+
+/* 2) Lively Spectrum */
+[data-theme="lively-spectrum"] {
+  --primary-actions-bg:           #D98FCC;
+  --primary-actions-bg-hover:     #C070B0;
+  --primary-actions-fg:           #030D0B;
+
+  --background-bg:                #F2E8DF;
+  --background-fg:                #F28749;
+
+  --secondary-actions-bg:         #F27649;
+  --secondary-actions-bg-hover:   #E06030;
+  --secondary-actions-fg:         #030D0B;
+}
+
+/* 3) Green Earth */
+[data-theme="green-earth"] {
+  --primary-actions-bg:           #3F4022;
+  --primary-actions-bg-hover:     #303518;
+  --primary-actions-fg:           #FFFFFF;
+
+  --background-bg:                #F1F1F1;
+  --background-fg:                #DAC4B3;
+
+  --secondary-actions-bg:         #887B56;
+  --secondary-actions-bg-hover:   #706540;
+  --secondary-actions-fg:         #3F4022;
+}
+
+/* 4) Tech Fusion */
+[data-theme="tech-fusion"] {
+  --primary-actions-bg:           #9674D4;
+  --primary-actions-bg-hover:     #7A5CB0;
+  --primary-actions-fg:           #FFFFFF;
+
+  --background-bg:                #FBFDF6;
+  --background-fg:                #101356;
+
+  --secondary-actions-bg:         #81FFFF;
+  --secondary-actions-bg-hover:   #60DCDC;
+  --secondary-actions-fg:         #101356;
+}
+
+/* 5) Pure Simplicity */
+[data-theme="pure-simplicity"] {
+  --primary-actions-bg:           #49494B;
+  --primary-actions-bg-hover:     #303030;
+  --primary-actions-fg:           #FFFFFF;
+
+  --background-bg:                #FFFFFF;
+  --background-fg:                #8E8E90;
+
+  --secondary-actions-bg:         #D4D4DC;
+  --secondary-actions-bg-hover:   #C0C0C0;
+  --secondary-actions-fg:         #49494B;
+}
+
+/* Apply the vars globally */
+body {
+  background-color: var(--background-bg);
+  color:            var(--background-fg);
+  margin:           0;
+  font-family:      sans-serif;
+}
+
+/* Primary button */
+.btn-primary {
+  background-color: var(--primary-actions-bg);
+  color:            var(--primary-actions-fg);
+  border:           none;
+  padding:          0.5rem 1rem;
+  border-radius:    0.25rem;
+  cursor:           pointer;
+  transition:       background-color 0.2s;
+}
+.btn-primary:hover {
+  background-color: var(--primary-actions-bg-hover);
+}
+
+/* Secondary button */
+.btn-secondary {
+  background-color: var(--secondary-actions-bg);
+  color:            var(--secondary-actions-fg);
+  border:           none;
+  padding:          0.5rem 1rem;
+  border-radius:    0.25rem;
+  cursor:           pointer;
+  transition:       background-color 0.2s;
+}
+.btn-secondary:hover {
+  background-color: var(--secondary-actions-bg-hover);
+}
