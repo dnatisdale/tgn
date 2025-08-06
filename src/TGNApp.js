@@ -38,7 +38,7 @@ const TGNApp = () => {
   // Translations
   const t = {
     en: {
-      title: 'Thai Good News',
+      title: 'ข่่วดี Thai Good News',
       addResource: 'Add URL',
       search: 'Search URLs...',
       allCategories: 'All Categories',
