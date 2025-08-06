@@ -14,6 +14,8 @@ const TGNApp = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedSubcategory, setSelectedSubcategory] = useState('all');
+  const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
   
   // UI state
   const [showAddForm, setShowAddForm] = useState(false);
@@ -29,6 +31,9 @@ const TGNApp = () => {
   const [qrImageBlob, setQrImageBlob] = useState(null);
   const [showSharePreview, setShowSharePreview] = useState(false);
   const [sharePreviewUrl, setSharePreviewUrl] = useState(null);
+  const [showSignIn, setShowSignIn] = useState(false);
+  const [emailInput, setEmailInput] = useState('');
+  const [syncStatus, setSyncStatus] = useState('synced'); // 'syncing', 'synced', 'error'
   
   // Form state
   const [newUrl, setNewUrl] = useState({ title: '', url: '', category: '', subcategory: '', subSubcategory: '', notes: '' });
@@ -38,15 +43,15 @@ const TGNApp = () => {
   // Translations
   const t = {
     en: {
-      title: 'ข่าวดี Thai Good News',
-      addResource: 'Add URL',
-      search: 'Search URLs...',
+      title: 'Thai Good News',
+      addResource: 'Add Resource',
+      search: 'Search resources...',
       allCategories: 'All Categories',
       manageCategories: 'Manage Categories',
-      importUrls: 'Import',
-      exportData: 'Export',
+      importUrls: 'Import URLs',
+      exportData: 'Export Data',
       installApp: 'Install App',
-      checkUrls: 'Check',
+      checkUrls: 'Check URLs',
       selectAll: 'Select All',
       selectNone: 'Select None',
       selectCategory: 'Select Category',
@@ -68,7 +73,16 @@ const TGNApp = () => {
       delete: 'Delete',
       share: 'Share',
       qrCode: 'QR Code',
-      editCategory: 'Edit Category',
+      signIn: 'Sign In',
+      signOut: 'Sign Out',
+      email: 'Email Address',
+      signInButton: 'Sign In with Email',
+      signInPrompt: 'Sign in to sync your gospel resources across all devices',
+      syncStatus: 'Sync Status',
+      syncing: 'Syncing...',
+      synced: 'Synced',
+      syncError: 'Sync Error',
+      welcome: 'Welcome',
       updateCategory: 'Update Category',
       duplicateCategory: 'Duplicate Category',
       duplicateSubcategory: 'Duplicate Subcategory',
@@ -118,7 +132,16 @@ const TGNApp = () => {
       delete: 'ลบ',
       share: 'แชร์',
       qrCode: 'QR Code',
-      editCategory: 'แก้ไขหมวดหมู่',
+      signIn: 'เข้าสู่ระบบ',
+      signOut: 'ออกจากระบบ',
+      email: 'ที่อยู่อีเมล',
+      signInButton: 'เข้าสู่ระบบด้วยอีเมล',
+      signInPrompt: 'เข้าสู่ระบบเพื่อซิงค์ทรัพยากรข่าวประเสริฐทั่วทุกอุปกรณ์',
+      syncStatus: 'สถานะซิงค์',
+      syncing: 'กำลังซิงค์...',
+      synced: 'ซิงค์แล้ว',
+      syncError: 'ข้อผิดพลาดซิงค์',
+      welcome: 'ยินดีต้อนรับ',
       updateCategory: 'อัปเดตหมวดหมู่',
       duplicateCategory: 'หมวดหมู่ซ้ำ',
       duplicateSubcategory: 'หมวดหมู่ย่อยซ้ำ',
@@ -206,18 +229,26 @@ const TGNApp = () => {
 
   // Initialize data
   useEffect(() => {
-    const savedUrls = localStorage.getItem('tgnUrls');
-    const savedCategories = localStorage.getItem('tgnCategories');
-    const savedLanguage = localStorage.getItem('tgnLanguage');
-
-    if (savedUrls) setUrls(JSON.parse(savedUrls));
-    if (savedCategories) {
-      setCategories(JSON.parse(savedCategories));
-    } else {
-      setCategories(defaultCategories);
-      localStorage.setItem('tgnCategories', JSON.stringify(defaultCategories));
-    }
-    if (savedLanguage) setLanguage(savedLanguage);
+    const initializeApp = async () => {
+      setIsLoading(true);
+      
+      // Check for existing user session
+      const savedUser = localStorage.getItem('tgnUser');
+      const savedLanguage = localStorage.getItem('tgnLanguage');
+      
+      if (savedLanguage) setLanguage(savedLanguage);
+      
+      if (savedUser) {
+        const user = JSON.parse(savedUser);
+        setUser(user);
+        await loadUserData(user.email);
+      } else {
+        // Load default categories for new users
+        setCategories(defaultCategories);
+      }
+      
+      setIsLoading(false);
+    };
 
     // PWA install prompt
     const handleBeforeInstallPrompt = (e) => {
@@ -227,17 +258,106 @@ const TGNApp = () => {
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    initializeApp();
+    
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
 
-  // Save data
-  useEffect(() => {
-    localStorage.setItem('tgnUrls', JSON.stringify(urls));
-  }, [urls]);
+  // User authentication
+  const signInWithEmail = async (email) => {
+    if (!email || !email.includes('@')) {
+      alert('Please enter a valid email address');
+      return;
+    }
+    
+    setIsLoading(true);
+    
+    try {
+      // In a real app, this would validate with a backend
+      const user = { email: email.toLowerCase(), signedInAt: new Date().toISOString() };
+      
+      setUser(user);
+      localStorage.setItem('tgnUser', JSON.stringify(user));
+      
+      // Load user's data from cloud storage
+      await loadUserData(user.email);
+      
+      setShowSignIn(false);
+      setEmailInput('');
+    } catch (error) {
+      console.error('Sign in error:', error);
+      alert('Sign in failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  const signOut = () => {
+    setUser(null);
+    localStorage.removeItem('tgnUser');
+    setUrls([]);
+    setCategories(defaultCategories);
+    setSelectedUrls(new Set());
+  };
+
+  // Cloud data management (simplified - in production, use Firebase/Supabase)
+  const loadUserData = async (email) => {
+    try {
+      setSyncStatus('syncing');
+      
+      // Simulate cloud storage (replace with real backend)
+      const userDataKey = `tgn_user_${email.replace(/[^a-zA-Z0-9]/g, '_')}`;
+      const cloudData = localStorage.getItem(userDataKey);
+      
+      if (cloudData) {
+        const { urls: cloudUrls, categories: cloudCategories } = JSON.parse(cloudData);
+        setUrls(cloudUrls || []);
+        setCategories(cloudCategories || defaultCategories);
+      } else {
+        // New user - set default categories
+        setCategories(defaultCategories);
+        setUrls([]);
+      }
+      
+      setSyncStatus('synced');
+    } catch (error) {
+      console.error('Load data error:', error);
+      setSyncStatus('error');
+    }
+  };
+
+  const saveUserData = async () => {
+    if (!user) return;
+    
+    try {
+      setSyncStatus('syncing');
+      
+      // Simulate cloud storage (replace with real backend)
+      const userDataKey = `tgn_user_${user.email.replace(/[^a-zA-Z0-9]/g, '_')}`;
+      const userData = {
+        urls,
+        categories,
+        lastSync: new Date().toISOString()
+      };
+      
+      localStorage.setItem(userDataKey, JSON.stringify(userData));
+      setSyncStatus('synced');
+    } catch (error) {
+      console.error('Save data error:', error);
+      setSyncStatus('error');
+    }
+  };
+
+  // Save data when urls or categories change
   useEffect(() => {
-    localStorage.setItem('tgnCategories', JSON.stringify(categories));
-  }, [categories]);
+    if (user && (urls.length > 0 || categories.length > 0)) {
+      const timeoutId = setTimeout(() => {
+        saveUserData();
+      }, 1000); // Debounce saves by 1 second
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [urls, categories, user]);
 
   useEffect(() => {
     localStorage.setItem('tgnLanguage', language);
@@ -349,16 +469,16 @@ const TGNApp = () => {
     }
   };
 
-  // Generate QR code image for sharing
+  // Generate QR code image for sharing (no auto-download)
   const generateQRCodeImage = async (url) => {
     try {
       // Create a canvas for the QR code image
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       
-      // Set canvas size
-      canvas.width = 400;
-      canvas.height = 500;
+      // Set larger canvas size
+      canvas.width = 500;
+      canvas.height = 600;
       
       // Create rounded rectangle background
       const drawRoundedRect = (x, y, width, height, radius) => {
@@ -377,42 +497,42 @@ const TGNApp = () => {
       
       // Draw white background with rounded corners
       ctx.fillStyle = '#ffffff';
-      drawRoundedRect(10, 10, 380, 480, 20);
+      drawRoundedRect(15, 15, 470, 570, 25);
       ctx.fill();
       
       // Draw border
       ctx.strokeStyle = '#e5e7eb';
-      ctx.lineWidth = 2;
-      drawRoundedRect(10, 10, 380, 480, 20);
+      ctx.lineWidth = 3;
+      drawRoundedRect(15, 15, 470, 570, 25);
       ctx.stroke();
       
       // Draw title
       ctx.fillStyle = '#1f2937';
-      ctx.font = 'bold 18px Arial, sans-serif';
+      ctx.font = 'bold 22px Arial, sans-serif';
       ctx.textAlign = 'center';
-      const title = url.title.length > 40 ? url.title.substring(0, 37) + '...' : url.title;
-      ctx.fillText(title, 200, 50);
+      const title = url.title.length > 35 ? url.title.substring(0, 32) + '...' : url.title;
+      ctx.fillText(title, 250, 60);
       
-      // Load and draw QR code
-      const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url.url)}&format=png&margin=10`;
+      // Load and draw QR code (bigger size)
+      const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(url.url)}&format=png&margin=15`;
       
       return new Promise((resolve, reject) => {
         const qrImage = new Image();
         qrImage.crossOrigin = 'anonymous';
         
         qrImage.onload = () => {
-          // Draw QR code centered
-          ctx.drawImage(qrImage, 100, 80, 200, 200);
+          // Draw larger QR code centered
+          ctx.drawImage(qrImage, 110, 90, 280, 280);
           
           // Draw URL text (split into multiple lines if needed)
           ctx.fillStyle = '#4b5563';
-          ctx.font = '14px Arial, sans-serif';
+          ctx.font = '16px Arial, sans-serif';
           ctx.textAlign = 'center';
           
           const urlText = url.url;
-          const maxWidth = 360;
-          const lineHeight = 20;
-          let y = 320;
+          const maxWidth = 440;
+          const lineHeight = 22;
+          let y = 410;
           
           // Split long URLs into multiple lines
           if (ctx.measureText(urlText).width > maxWidth) {
@@ -422,22 +542,22 @@ const TGNApp = () => {
             for (let i = 0; i < words.length; i++) {
               const testLine = line + words[i] + (i < words.length - 1 ? '/' : '');
               if (ctx.measureText(testLine).width > maxWidth && line !== '') {
-                ctx.fillText(line, 200, y);
+                ctx.fillText(line, 250, y);
                 y += lineHeight;
                 line = words[i] + (i < words.length - 1 ? '/' : '');
               } else {
                 line = testLine;
               }
             }
-            ctx.fillText(line, 200, y);
+            ctx.fillText(line, 250, y);
           } else {
-            ctx.fillText(urlText, 200, y);
+            ctx.fillText(urlText, 250, y);
           }
           
           // Draw category/subcategory info
           if (url.category || url.subcategory) {
             ctx.fillStyle = '#6b7280';
-            ctx.font = '12px Arial, sans-serif';
+            ctx.font = '14px Arial, sans-serif';
             let categoryText = '';
             
             if (url.category) {
@@ -450,18 +570,17 @@ const TGNApp = () => {
               }
             }
             
-            ctx.fillText(categoryText, 200, y + 40);
+            ctx.fillText(categoryText, 250, y + 50);
           }
           
           // Draw app name at bottom
           ctx.fillStyle = '#9ca3af';
-          ctx.font = '12px Arial, sans-serif';
-          ctx.fillText(t[language].title, 200, 470);
+          ctx.font = '14px Arial, sans-serif';
+          ctx.fillText(t[language].title, 250, 560);
           
-          // Convert to blob and share
+          // Convert to blob (no auto-download)
           canvas.toBlob((blob) => {
             if (blob) {
-              shareQRCodeImage(blob, url);
               resolve(blob);
             } else {
               reject(new Error('Failed to create image'));
@@ -478,11 +597,11 @@ const TGNApp = () => {
       
     } catch (error) {
       console.error('Error generating QR code image:', error);
-      alert('Failed to generate QR code image');
+      throw error;
     }
   };
 
-  // Share QR code image
+  // Share QR code image (kept for potential future use)
   const shareQRCodeImage = async (blob, url) => {
     try {
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [new File([blob], 'qr-code.png', { type: 'image/png' })] })) {
@@ -494,23 +613,12 @@ const TGNApp = () => {
           files: [file]
         });
       } else {
-        // Fallback: download the image
-        const downloadUrl = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = downloadUrl;
-        a.download = `${url.title.replace(/[^a-zA-Z0-9]/g, '_')}_QR.png`;
-        a.click();
-        URL.revokeObjectURL(downloadUrl);
+        // Fallback: copy URL to clipboard
+        copyToClipboard(url.url);
       }
     } catch (error) {
       console.error('Error sharing QR code:', error);
-      // Fallback: download the image
-      const downloadUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = downloadUrl;
-      a.download = `${url.title.replace(/[^a-zA-Z0-9]/g, '_')}_QR.png`;
-      a.click();
-      URL.revokeObjectURL(downloadUrl);
+      copyToClipboard(url.url);
     }
   };
 
@@ -998,6 +1106,729 @@ const TGNApp = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Loading Screen */}
+      {isLoading && (
+        <div className="fixed inset-0 bg-white flex items-center justify-center z-50">
+          <div className="text-center">
+            <div className="loading-spinner mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading TGN...</p>
+          </div>
+        </div>
+      )}
+
+      {/* Sign In Screen */}
+      {!user && !isLoading && (
+        <div className="min-h-screen flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-md">
+            <div className="text-center mb-6">
+              <h1 className="text-3xl font-bold text-blue-600 mb-2">{t[language].title}</h1>
+              <p className="text-gray-600">{t[language].signInPrompt}</p>
+            </div>
+            
+            <div className="space-y-4">
+              <input
+                type="email"
+                placeholder={t[language].email}
+                value={emailInput}
+                onChange={(e) => setEmailInput(e.target.value)}
+                className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                onKeyPress={(e) => e.key === 'Enter' && signInWithEmail(emailInput)}
+              />
+              <button
+                onClick={() => signInWithEmail(emailInput)}
+                className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-medium"
+              >
+                {t[language].signInButton}
+              </button>
+            </div>
+            
+            <div className="mt-6 text-center">
+              <button
+                onClick={() => setLanguage(language === 'en' ? 'th' : 'en')}
+                className="text-blue-600 hover:text-blue-800 text-sm"
+              >
+                {language === 'en' ? 'ไทย' : 'English'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main App (only show if user is signed in) */}
+      {user && !isLoading && (
+        <>
+          {/* Header */}
+          <header className="bg-blue-600 text-white p-4 shadow-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold">{t[language].title}</h1>
+                <p className="text-blue-200 text-sm">{t[language].welcome}, {user.email}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {/* Sync Status */}
+                <div className="flex items-center gap-1 text-sm">
+                  <div className={`w-2 h-2 rounded-full ${
+                    syncStatus === 'synced' ? 'bg-green-400' :
+                    syncStatus === 'syncing' ? 'bg-yellow-400 animate-pulse' :
+                    'bg-red-400'
+                  }`}></div>
+                  <span className="text-blue-200">{t[language][syncStatus]}</span>
+                </div>
+                
+                {showInstallButton && (
+                  <button
+                    onClick={handleInstall}
+                    className="bg-green-500 hover:bg-green-600 px-3 py-1 rounded text-sm flex items-center gap-1"
+                  >
+                    <Download size={16} />
+                    {t[language].installApp}
+                  </button>
+                )}
+                <button
+                  onClick={() => setLanguage(language === 'en' ? 'th' : 'en')}
+                  className="bg-blue-500 hover:bg-blue-400 px-3 py-1 rounded text-sm"
+                >
+                  {language === 'en' ? 'ไทย' : 'EN'}
+                </button>
+                <button
+                  onClick={signOut}
+                  className="bg-red-500 hover:bg-red-600 px-3 py-1 rounded text-sm"
+                >
+                  {t[language].signOut}
+                </button>
+              </div>
+            </div>
+          </header>
+
+          {/* Controls */}
+          <div className="p-4 bg-white shadow-sm">
+            <div className="flex flex-wrap gap-2 mb-4">
+              <button
+                onClick={() => setShowAddForm(true)}
+                className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded flex items-center gap-2"
+              >
+                <Plus size={16} />
+                {t[language].addResource}
+              </button>
+              <button
+                onClick={() => setShowCategoryManager(true)}
+                className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded flex items-center gap-2"
+              >
+                <Settings size={16} />
+                {t[language].manageCategories}
+              </button>
+              <button
+                onClick={() => setShowImportDialog(true)}
+                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2"
+              >
+                <Upload size={16} />
+                {t[language].importUrls}
+              </button>
+              <button
+                onClick={exportData}
+                className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded flex items-center gap-2"
+              >
+                <Download size={16} />
+                {t[language].exportData}
+              </button>
+              <button
+                onClick={checkAllUrls}
+                className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded flex items-center gap-2"
+              >
+                <RefreshCw size={16} />
+                {t[language].checkUrls}
+              </button>
+            </div>
+
+            {/* Selection Controls */}
+            <div className="flex flex-wrap items-center gap-2 mb-4 p-3 bg-gray-100 rounded-lg">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={selectAll}
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm flex items-center gap-1"
+                >
+                  <Check size={14} />
+                  {t[language].selectAll}
+                </button>
+                <button
+                  onClick={selectNone}
+                  className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm flex items-center gap-1"
+                >
+                  <X size={14} />
+                  {t[language].selectNone}
+                </button>
+                
+                {/* Select by Category dropdown */}
+                <div className="relative">
+                  <select
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        const [categoryId, subcategoryId] = e.target.value.split('|');
+                        selectByCategory(categoryId, subcategoryId || null);
+                        e.target.value = ''; // Reset dropdown
+                      }
+                    }}
+                    className="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1 rounded text-sm"
+                  >
+                    <option value="">{t[language].selectCategory}</option>
+                    {categories.map(category => (
+                      <optgroup key={category.id} label={category.name}>
+                        <option value={category.id}>All {category.name}</option>
+                        {category.subcategories.map(sub => (
+                          <option key={sub.id} value={`${category.id}|${sub.id}`}>
+                            {sub.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Selected count and bulk actions */}
+              {selectedUrls.size > 0 && (
+                <div className="flex items-center gap-2 ml-auto">
+                  <span className="text-sm font-medium text-gray-700">
+                    {selectedUrls.size} {t[language].selectedCount}
+                  </span>
+                  <button
+                    onClick={bulkCheckSelected}
+                    className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded text-sm flex items-center gap-1"
+                  >
+                    <RefreshCw size={14} />
+                    {t[language].checkSelected}
+                  </button>
+                  <button
+                    onClick={bulkExportSelected}
+                    className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm flex items-center gap-1"
+                  >
+                    <Download size={14} />
+                    {t[language].exportSelected}
+                  </button>
+                  <button
+                    onClick={bulkDeleteSelected}
+                    className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm flex items-center gap-1"
+                  >
+                    <Trash2 size={14} />
+                    {t[language].deleteSelected}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Search and Filters */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+                <input
+                  type="text"
+                  placeholder={t[language].search}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              
+              <select
+                value={selectedCategory}
+                onChange={(e) => {
+                  setSelectedCategory(e.target.value);
+                  setSelectedSubcategory('all');
+                }}
+                className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="all">{t[language].allCategories}</option>
+                {categories.map(category => (
+                  <option key={category.id} value={category.id}>{category.name}</option>
+                ))}
+              </select>
+
+              {getSubcategories().length > 0 && (
+                <select
+                  value={selectedSubcategory}
+                  onChange={(e) => setSelectedSubcategory(e.target.value)}
+                  className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="all">All Subcategories</option>
+                  {getSubcategories().map(subcategory => (
+                    <option key={subcategory.id} value={subcategory.id}>{subcategory.name}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          </div>
+
+          {/* URL List */}
+          <div className="p-4">
+            <div className="grid gap-4">
+              {filteredUrls.map(url => (
+                <div key={url.id} className="bg-white p-4 rounded-lg shadow-sm border">
+                  <div className="flex items-start gap-3">
+                    {/* Checkbox */}
+                    <input
+                      type="checkbox"
+                      checked={selectedUrls.has(url.id)}
+                      onChange={() => toggleUrlSelection(url.id)}
+                      className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-lg">{url.title}</h3>
+                      <a
+                        href={url.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800 flex items-center gap-1 text-sm"
+                      >
+                        {url.url}
+                        <ExternalLink size={12} />
+                      </a>
+                      {url.notes && (
+                        <p className="text-gray-600 text-sm mt-1">{url.notes}</p>
+                      )}
+                      <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                        {url.category && (
+                          <span className="bg-gray-100 px-2 py-1 rounded">
+                            {categories.find(c => c.id === url.category)?.name || url.category}
+                          </span>
+                        )}
+                        {url.subcategory && (
+                          <span className="bg-gray-100 px-2 py-1 rounded">
+                            {categories.find(c => c.id === url.category)?.subcategories.find(s => s.id === url.subcategory)?.name || url.subcategory}
+                          </span>
+                        )}
+                        <span className={`px-2 py-1 rounded ${
+                          url.status === 'working' ? 'bg-green-100 text-green-800' :
+                          url.status === 'broken' ? 'bg-red-100 text-red-800' :
+                          url.status === 'checking' ? 'bg-blue-100 text-blue-800' :
+                          url.status === 'timeout' ? 'bg-yellow-100 text-yellow-800' :
+                          url.status === 'invalid' ? 'bg-red-100 text-red-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {t[language][url.status] || url.status}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 ml-4">
+                      <button
+                        onClick={() => generateQRCode(url)}
+                        className="p-2 text-gray-600 hover:text-blue-600"
+                        title={t[language].qrCode}
+                      >
+                        <QrCode size={16} />
+                      </button>
+                      <button
+                        onClick={() => showSharePreviewHandler(url)}
+                        className="p-2 text-gray-600 hover:text-green-600"
+                        title={t[language].share}
+                      >
+                        <Share2 size={16} />
+                      </button>
+                      <button
+                        onClick={() => deleteUrl(url.id)}
+                        className="p-2 text-gray-600 hover:text-red-600"
+                        title={t[language].delete}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {filteredUrls.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  No resources found. Add some resources to get started!
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Add URL Modal */}
+          {showAddForm && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-lg p-6 w-full max-w-md">
+                <h2 className="text-xl font-bold mb-4">{t[language].addResource}</h2>
+                <div className="space-y-4">
+                  <input
+                    type="text"
+                    placeholder={t[language].title_label}
+                    value={newUrl.title}
+                    onChange={(e) => setNewUrl({...newUrl, title: e.target.value})}
+                    className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                  />
+                  <input
+                    type="url"
+                    placeholder={t[language].url_label}
+                    value={newUrl.url}
+                    onChange={(e) => setNewUrl({...newUrl, url: e.target.value})}
+                    className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                  />
+                  <select
+                    value={newUrl.category}
+                    onChange={(e) => setNewUrl({...newUrl, category: e.target.value, subcategory: '', subSubcategory: ''})}
+                    className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">{t[language].category_label}</option>
+                    {categories.map(category => (
+                      <option key={category.id} value={category.id}>{category.name}</option>
+                    ))}
+                  </select>
+                  {newUrl.category && (
+                    <select
+                      value={newUrl.subcategory}
+                      onChange={(e) => setNewUrl({...newUrl, subcategory: e.target.value, subSubcategory: ''})}
+                      className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">{t[language].subcategory_label}</option>
+                      {categories.find(c => c.id === newUrl.category)?.subcategories.map(sub => (
+                        <option key={sub.id} value={sub.id}>{sub.name}</option>
+                      ))}
+                    </select>
+                  )}
+                  {newUrl.subcategory && (
+                    <select
+                      value={newUrl.subSubcategory}
+                      onChange={(e) => setNewUrl({...newUrl, subSubcategory: e.target.value})}
+                      className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">{t[language].subSubcategory_label}</option>
+                      {categories.find(c => c.id === newUrl.category)?.subcategories.find(s => s.id === newUrl.subcategory)?.subSubcategories?.map(subSub => (
+                        <option key={subSub.id} value={subSub.id}>{subSub.name}</option>
+                      ))}
+                    </select>
+                  )}
+                  <textarea
+                    placeholder={t[language].notes_label}
+                    value={newUrl.notes}
+                    onChange={(e) => setNewUrl({...newUrl, notes: e.target.value})}
+                    className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                    rows="3"
+                  />
+                </div>
+                <div className="flex gap-2 mt-6">
+                  <button
+                    onClick={addUrl}
+                    className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+                  >
+                    {t[language].save}
+                  </button>
+                  <button
+                    onClick={() => setShowAddForm(false)}
+                    className="flex-1 bg-gray-300 text-gray-700 py-2 rounded hover:bg-gray-400"
+                  >
+                    {t[language].cancel}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Category Manager Modal */}
+          {showCategoryManager && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+                <h2 className="text-xl font-bold mb-4">{t[language].manageCategories}</h2>
+                
+                {/* Add new category */}
+                <div className="mb-6 p-4 bg-gray-50 rounded">
+                  <h3 className="font-semibold mb-2">{t[language].addCategory}</h3>
+                  <input
+                    type="text"
+                    placeholder={t[language].categoryName}
+                    value={newCategory.name}
+                    onChange={(e) => setNewCategory({...newCategory, name: e.target.value})}
+                    className="w-full px-3 py-2 border rounded mb-2"
+                  />
+                  <div className="space-y-2">
+                    <label className="font-medium text-sm">{t[language].subcategories}</label>
+                    {newCategory.subcategories.map((sub, index) => (
+                      <div key={index} className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="Subcategory name"
+                          value={sub}
+                          onChange={(e) => {
+                            const subs = [...newCategory.subcategories];
+                            subs[index] = e.target.value;
+                            setNewCategory({...newCategory, subcategories: subs});
+                          }}
+                          className="flex-1 px-3 py-1 border rounded text-sm"
+                        />
+                        <button
+                          onClick={() => {
+                            const subs = newCategory.subcategories.filter((_, i) => i !== index);
+                            setNewCategory({...newCategory, subcategories: subs});
+                          }}
+                          className="px-2 py-1 text-red-600 hover:bg-red-50 rounded"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      onClick={() => setNewCategory({...newCategory, subcategories: [...newCategory.subcategories, '']})}
+                      className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1"
+                    >
+                      <Plus size={14} />
+                      {t[language].addSubcategory}
+                    </button>
+                  </div>
+                  <button
+                    onClick={addCategory}
+                    className="w-full bg-green-500 text-white py-2 rounded hover:bg-green-600 mt-2"
+                  >
+                    {t[language].addCategory}
+                  </button>
+                </div>
+
+                {/* Existing categories */}
+                <div className="space-y-4">
+                  {categories.map((category, index) => (
+                    <div key={category.id} className="border rounded p-4">
+                      {editingCategory === category.id ? (
+                        // Edit mode
+                        <div className="space-y-4">
+                          <input
+                            type="text"
+                            placeholder={t[language].categoryName}
+                            value={editingCategoryData.name}
+                            onChange={(e) => setEditingCategoryData({...editingCategoryData, name: e.target.value})}
+                            className="w-full px-3 py-2 border rounded mb-2"
+                          />
+                          <div className="space-y-2">
+                            <label className="font-medium text-sm">{t[language].subcategories}</label>
+                            {editingCategoryData.subcategories.map((sub, subIndex) => (
+                              <div key={subIndex} className="flex gap-2">
+                                <input
+                                  type="text"
+                                  placeholder="Subcategory name"
+                                  value={sub}
+                                  onChange={(e) => {
+                                    const subs = [...editingCategoryData.subcategories];
+                                    subs[subIndex] = e.target.value;
+                                    setEditingCategoryData({...editingCategoryData, subcategories: subs});
+                                  }}
+                                  className="flex-1 px-3 py-1 border rounded text-sm"
+                                />
+                                <button
+                                  onClick={() => {
+                                    const subs = editingCategoryData.subcategories.filter((_, i) => i !== subIndex);
+                                    setEditingCategoryData({...editingCategoryData, subcategories: subs});
+                                  }}
+                                  className="px-2 py-1 text-red-600 hover:bg-red-50 rounded"
+                                >
+                                  <X size={14} />
+                                </button>
+                              </div>
+                            ))}
+                            <button
+                              onClick={() => setEditingCategoryData({...editingCategoryData, subcategories: [...editingCategoryData.subcategories, '']})}
+                              className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1"
+                            >
+                              <Plus size={14} />
+                              {t[language].addSubcategory}
+                            </button>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={updateCategory}
+                              className="flex-1 bg-green-500 text-white py-2 rounded hover:bg-green-600"
+                            >
+                              {t[language].updateCategory}
+                            </button>
+                            <button
+                              onClick={cancelEditCategory}
+                              className="flex-1 bg-gray-300 text-gray-700 py-2 rounded hover:bg-gray-400"
+                            >
+                              {t[language].cancel}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        // View mode
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="font-semibold">{category.name}</h4>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => moveCategoryUp(index)}
+                                disabled={index === 0}
+                                className="p-1 text-gray-600 hover:text-blue-600 disabled:opacity-50"
+                                title="Move up"
+                              >
+                                <ArrowUp size={14} />
+                              </button>
+                              <button
+                                onClick={() => moveCategoryDown(index)}
+                                disabled={index === categories.length - 1}
+                                className="p-1 text-gray-600 hover:text-blue-600 disabled:opacity-50"
+                                title="Move down"
+                              >
+                                <ArrowDown size={14} />
+                              </button>
+                              <button
+                                onClick={() => startEditCategory(category)}
+                                className="p-1 text-gray-600 hover:text-blue-600"
+                                title={t[language].editCategory}
+                              >
+                                <Edit3 size={14} />
+                              </button>
+                              <button
+                                onClick={() => deleteCategory(category.id)}
+                                className="p-1 text-gray-600 hover:text-red-600"
+                                title={t[language].delete}
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            Subcategories: {category.subcategories.length > 0 ? category.subcategories.map(sub => sub.name).join(', ') : 'None'}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex gap-2 mt-6">
+                  <button
+                    onClick={() => setShowCategoryManager(false)}
+                    className="flex-1 bg-gray-300 text-gray-700 py-2 rounded hover:bg-gray-400"
+                  >
+                    {t[language].cancel}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Bulk Import Modal */}
+          {showImportDialog && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-lg p-6 w-full max-w-md">
+                <h2 className="text-xl font-bold mb-4">{t[language].bulkImport}</h2>
+                <textarea
+                  placeholder={t[language].pasteUrls}
+                  value={bulkImportText}
+                  onChange={(e) => setBulkImportText(e.target.value)}
+                  className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                  rows="10"
+                />
+                <div className="flex gap-2 mt-4">
+                  <button
+                    onClick={handleBulkImport}
+                    className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+                  >
+                    Import
+                  </button>
+                  <button
+                    onClick={() => setShowImportDialog(false)}
+                    className="flex-1 bg-gray-300 text-gray-700 py-2 rounded hover:bg-gray-400"
+                  >
+                    {t[language].cancel}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* QR Code Popup */}
+          {showQRPopup && currentQRUrl && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-lg p-6 w-full max-w-lg text-center">
+                <h2 className="text-xl font-bold mb-4">QR Code for {currentQRUrl.title}</h2>
+                
+                {qrImageBlob ? (
+                  <div className="space-y-4">
+                    <img 
+                      src={URL.createObjectURL(qrImageBlob)} 
+                      alt="QR Code" 
+                      className="mx-auto rounded-lg shadow-md"
+                      style={{maxWidth: '400px', height: 'auto'}}
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={downloadQRCode}
+                        className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 flex items-center justify-center gap-2"
+                      >
+                        <Download size={16} />
+                        Download PNG
+                      </button>
+                      <button
+                        onClick={() => setShowQRPopup(false)}
+                        className="flex-1 bg-gray-300 text-gray-700 py-2 rounded hover:bg-gray-400"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="py-8">
+                    <div className="loading-spinner mx-auto mb-4"></div>
+                    <p>Generating QR code...</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Share Preview Popup */}
+          {showSharePreview && sharePreviewUrl && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-lg p-6 w-full max-w-md">
+                <h2 className="text-xl font-bold mb-4">Share Preview</h2>
+                
+                <div className="border rounded-lg p-4 mb-4 bg-gray-50">
+                  <h3 className="font-semibold text-lg mb-2">{sharePreviewUrl.title}</h3>
+                  <p className="text-blue-600 text-sm mb-2 break-all">{sharePreviewUrl.url}</p>
+                  {sharePreviewUrl.notes && (
+                    <p className="text-gray-600 text-sm mb-2">{sharePreviewUrl.notes}</p>
+                  )}
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    {sharePreviewUrl.category && (
+                      <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                        {categories.find(c => c.id === sharePreviewUrl.category)?.name}
+                      </span>
+                    )}
+                    {sharePreviewUrl.subcategory && (
+                      <span className="bg-green-100 text-green-800 px-2 py-1 rounded">
+                        {categories.find(c => c.id === sharePreviewUrl.category)?.subcategories.find(s => s.id === sharePreviewUrl.subcategory)?.name}
+                      </span>
+                    )}
+                    {sharePreviewUrl.subSubcategory && (
+                      <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded">
+                        {categories.find(c => c.id === sharePreviewUrl.category)?.subcategories.find(s => s.id === sharePreviewUrl.subcategory)?.subSubcategories?.find(ss => ss.id === sharePreviewUrl.subSubcategory)?.name}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => performShare(sharePreviewUrl)}
+                    className="flex-1 bg-green-600 text-white py-2 rounded hover:bg-green-700 flex items-center justify-center gap-2"
+                  >
+                    <Share2 size={16} />
+                    Share Now
+                  </button>
+                  <button
+                    onClick={() => setShowSharePreview(false)}
+                    className="flex-1 bg-gray-300 text-gray-700 py-2 rounded hover:bg-gray-400"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+};
+
+export default TGNApp;screen bg-gray-50">
       {/* Header */}
       <header className="bg-blue-600 text-white p-4 shadow-lg">
         <div className="flex items-center justify-between">
