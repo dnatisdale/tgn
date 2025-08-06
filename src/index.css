@@ -75,7 +75,7 @@
 
 /* Apply the vars globally */
 body {
-  background-color: var(--background-bg);
+  background-color: var(--background-bg) !important;
   color:            var(--background-fg);
   margin:           0;
   font-family:      sans-serif;
@@ -105,7 +105,7 @@ body {
 
 /* Primary button */
 .btn-primary {
-  background-color: var(--primary-actions-bg);
+  background-color: var(--primary-actions-bg) !important;
   color:            var(--primary-actions-fg);
   border:           none;
   padding:          0.5rem 1rem;
@@ -114,12 +114,12 @@ body {
   transition:       background-color 0.2s;
 }
 .btn-primary:hover {
-  background-color: var(--primary-actions-bg-hover);
+  background-color: var(--primary-actions-bg-hover) !important;
 }
 
 /* Secondary button */
 .btn-secondary {
-  background-color: var(--secondary-actions-bg);
+  background-color: var(--secondary-actions-bg) !important;
   color:            var(--secondary-actions-fg);
   border:           none;
   padding:          0.5rem 1rem;
@@ -128,5 +128,5 @@ body {
   transition:       background-color 0.2s;
 }
 .btn-secondary:hover {
-  background-color: var(--secondary-actions-bg-hover);
+  background-color: var(--secondary-actions-bg-hover) !important;
 }

@@ -1179,6 +1179,7 @@ const TGNApp = () => {
                 onKeyPress={(e) => e.key === 'Enter' && signInWithEmail(emailInput)}
               />
               <button
+                className="btn-primary"
                 onClick={() => signInWithEmail(emailInput)}
                 className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-medium"
               >
@@ -1188,6 +1189,7 @@ const TGNApp = () => {
             
             <div className="mt-6 text-center">
               <button
+                className="btn-primary"
                 onClick={() => setLanguage(language === 'en' ? 'th' : 'en')}
                 className="text-blue-600 hover:text-blue-800 text-sm"
               >
@@ -1221,6 +1223,7 @@ const TGNApp = () => {
                 
                 {showInstallButton && (
                   <button
+                    className="btn-primary"
                     onClick={handleInstall}
                     className="bg-green-500 hover:bg-green-600 px-3 py-1 rounded text-sm flex items-center gap-1"
                   >
@@ -1229,12 +1232,14 @@ const TGNApp = () => {
                   </button>
                 )}
                 <button
+                  className="btn-primary"
                   onClick={() => setLanguage(language === 'en' ? 'th' : 'en')}
                   className="bg-blue-500 hover:bg-blue-400 px-3 py-1 rounded text-sm"
                 >
                   {language === 'en' ? 'ไทย' : 'EN'}
                 </button>
                 <button
+                  className="btn-primary"
                   onClick={signOut}
                   className="bg-red-500 hover:bg-red-600 px-3 py-1 rounded text-sm"
                 >
@@ -1248,6 +1253,7 @@ const TGNApp = () => {
           <div className="p-4 bg-white shadow-sm">
             <div className="flex flex-wrap gap-2 mb-4">
               <button
+                className="btn-primary"
                 onClick={() => setShowAddForm(true)}
                 className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded flex items-center gap-2"
               >
@@ -1255,6 +1261,7 @@ const TGNApp = () => {
                 {t[language].addResource}
               </button>
               <button
+                className="btn-primary"
                 onClick={() => setShowCategoryManager(true)}
                 className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded flex items-center gap-2"
               >
@@ -1262,6 +1269,7 @@ const TGNApp = () => {
                 {t[language].manageCategories}
               </button>
               <button
+                className="btn-primary"
                 onClick={() => setShowImportDialog(true)}
                 className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2"
               >
@@ -1269,6 +1277,7 @@ const TGNApp = () => {
                 {t[language].importUrls}
               </button>
               <button
+                className="btn-primary"
                 onClick={exportData}
                 className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded flex items-center gap-2"
               >
@@ -1276,6 +1285,7 @@ const TGNApp = () => {
                 {t[language].exportData}
               </button>
               <button
+                className="btn-primary"
                 onClick={checkAllUrls}
                 className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded flex items-center gap-2"
               >
@@ -1288,6 +1298,7 @@ const TGNApp = () => {
             <div className="flex flex-wrap items-center gap-2 mb-4 p-3 bg-gray-100 rounded-lg">
               <div className="flex items-center gap-2">
                 <button
+                  className="btn-primary"
                   onClick={selectAll}
                   className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm flex items-center gap-1"
                 >
@@ -1295,6 +1306,7 @@ const TGNApp = () => {
                   {t[language].selectAll}
                 </button>
                 <button
+                  className="btn-primary"
                   onClick={selectNone}
                   className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm flex items-center gap-1"
                 >
